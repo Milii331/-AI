@@ -684,3 +684,279 @@ function LessonView({ level, lessonTab, setLessonTab, onBack, onStartExam }) {
                 <div style={{ fontSize:13, color:"rgba(240,236,224,.58)", fontFamily:"'Crimson Pro',serif" }}>{ph.es}</div>
               </div>
               <button onClick={() => speakRu(ph.ru)} style={{ background:`${lv.color}1a`, border:`1px solid ${lv.color}40`, color:lv.color, padding:"10px 14px", borderRadius:7, fontSize:20, flexShrink:0, cursor:"pointer" }}>🔊</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ marginTop:40, textAlign:"center", padding:"28px 0", borderTop:"1px solid rgba(255,255,255,.06)" }}>
+        <div style={{ fontSize:13, color:"rgba(240,236,224,.38)", fontFamily:"'Noto Sans',sans-serif", marginBottom:14 }}>¿Repasaste todo el material?</div>
+        <button onClick={onStartExam} style={{ background:`linear-gradient(135deg,${lv.color},${lv.color}bb)`, color:"white", padding:"14px 42px", borderRadius:9, border:"none", fontFamily:"'Bebas Neue',sans-serif", fontSize:22, letterSpacing:2.5, cursor:"pointer", boxShadow:`0 4px 24px ${lv.color}40`, transition:"transform .2s" }}
+          onMouseEnter={e => e.currentTarget.style.transform="translateY(-2px)"}
+          onMouseLeave={e => e.currentTarget.style.transform=""}>
+          🎓 RENDIR EXAMEN {lv.badge}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ExamOpt({ selected, onClick, children }) {
+  return (
+    <div onClick={onClick} style={{ padding:"10px 14px", borderRadius:8, cursor:"pointer", userSelect:"none", transition:"all .2s", fontFamily:"'Crimson Pro',serif", fontSize:15, color:"#f0ece0", border:`2px solid ${selected?"#D4AF37":"rgba(255,255,255,.1)"}`, background:selected?"rgba(212,175,55,.12)":"transparent" }}>
+      {children}
+    </div>
+  );
+}
+
+function ExamView({ level, examStep, setExamStep, writingAnswers, setWritingAnswers, speakingResults, setSpeakingResults, cultureAnswers, setCultureAnswers, speakingFeedback, setSpeakingFeedback, isRecording, setIsRecording, speakingLoading, setSpeakingLoading, onBack, onComplete }) {
+  if (!level) return null;
+  const lv = level;
+  const steps = ["✍️ Escritura","🎤 Pronunciación","🏛️ Cultura","📊 Resultados"];
+
+  const calcScore = () => {
+    let c = 0, t = 0;
+    lv.examW.forEach((q, i) => { t++; if (writingAnswers[i] === q.a) c++; });
+    lv.examS.forEach((_, i) => { t++; if (speakingResults[i]?.score >= .5) c++; });
+    lv.examC.forEach((q, i) => { t++; if (cultureAnswers[i] === q.a) c++; });
+    const pct = t > 0 ? Math.round(c/t*100) : 0;
+    return { correct:c, total:t, pct, pass:pct >= 70,
+      wC: lv.examW.filter((_, i) => writingAnswers[i] === lv.examW[i].a).length,
+      sC: speakingResults.filter(r => r?.score >= .5).length,
+      cC: lv.examC.filter((_, i) => cultureAnswers[i] === lv.examC[i].a).length,
+    };
+  };
+
+  const handleSpeak = async (phrase, idx) => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      setSpeakingFeedback(p => ({ ...p, [idx]:{ text:"❌ Usá Google Chrome para el reconocimiento de voz.", err:true } }));
+      return;
+    }
+    setIsRecording(true); setSpeakingLoading(true);
+    setSpeakingFeedback(p => ({ ...p, [idx]:{ text:"🎤 Escuchando… hablá ahora.", loading:true } }));
+    const rec = new SR(); rec.lang="ru-RU"; rec.continuous=false; rec.interimResults=false;
+    rec.onresult = async (e) => {
+      const transcript = e.results[0][0].transcript;
+      setIsRecording(false);
+      const score = textSimilarity(transcript, phrase.ru);
+      setSpeakingResults(prev => { const u=[...prev]; u[idx]={ru:phrase.ru,transcript,score}; return u; });
+      setSpeakingFeedback(p => ({ ...p, [idx]:{ text:`⏳ Analizando: "${transcript}"…`, loading:true } }));
+      // Feedback local — sin API
+      await new Promise(r => setTimeout(r, 600));
+      const fb = getPronunciationFeedback(score, phrase.ru);
+      setSpeakingFeedback(p => ({ ...p, [idx]:{ text:fb, score, transcript, done:true } }));
+      setSpeakingLoading(false);
+    };
+    rec.onerror = (e) => {
+      setIsRecording(false); setSpeakingLoading(false);
+      setSpeakingFeedback(p => ({ ...p, [idx]:{ text:`❌ Error: ${e.error}. Comprobá los permisos del micrófono.`, err:true } }));
+    };
+    rec.start();
+  };
+
+  return (
+    <div style={{ position:"relative", zIndex:1, maxWidth:800, margin:"0 auto", padding:"32px 28px 80px", animation:"fadeUp .4s ease" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:28 }}>
+        <button onClick={onBack} style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.12)", color:"#f0ece0", padding:"8px 13px", borderRadius:7, fontFamily:"'Noto Sans',sans-serif", fontSize:13, cursor:"pointer" }}>← Lección</button>
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:24, color:lv.color, letterSpacing:2 }}>EXAMEN · {lv.badge}</div>
+      </div>
+      {/* Step bar */}
+      <div style={{ display:"flex", alignItems:"center", marginBottom:30 }}>
+        {steps.map((label, i) => (
+          <div key={i} style={{ display:"flex", alignItems:"center", flex:i<steps.length-1?1:"none" }}>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
+              <div style={{ width:36, height:36, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center",
+                background:i<examStep?"#2ecc71":i===examStep?lv.color:"rgba(255,255,255,.1)",
+                border:`2px solid ${i<examStep?"#2ecc71":i===examStep?lv.color:"rgba(255,255,255,.18)"}`,
+                fontSize:i<examStep?14:12, color:"white", fontWeight:700, fontFamily:"'Noto Sans',sans-serif", transition:"all .3s" }}>
+                {i < examStep ? "✓" : i+1}
+              </div>
+              <div style={{ fontSize:9, color:i===examStep?lv.color:"rgba(255,255,255,.28)", fontFamily:"'Noto Sans',sans-serif", whiteSpace:"nowrap" }}>{label}</div>
+            </div>
+            {i < steps.length-1 && <div style={{ flex:1, height:2, background:i<examStep?"#2ecc71":"rgba(255,255,255,.1)", margin:"0 6px", marginBottom:22, transition:"background .3s" }} />}
+          </div>
+        ))}
+      </div>
+
+      {/* ESCRITURA */}
+      {examStep===0 && (
+        <div style={{ animation:"fadeUp .4s ease" }}>
+          <div style={{ marginBottom:24 }}>
+            <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:20, color:"#f0ece0", letterSpacing:1 }}>✍️ Escritura</div>
+            <div style={{ fontSize:12, color:"rgba(240,236,224,.42)", fontFamily:"'Noto Sans',sans-serif", marginTop:3 }}>Seleccioná la respuesta correcta. Necesitás 70% total para aprobar.</div>
+          </div>
+          {lv.examW.map((q, qi) => (
+            <div key={qi} style={{ background:"rgba(12,18,30,.95)", border:"1px solid rgba(255,255,255,.07)", borderRadius:12, padding:22, marginBottom:14 }}>
+              <div style={{ fontFamily:"'Crimson Pro',serif", fontSize:17, color:"#f0ece0", marginBottom:14 }}>
+                <span style={{ color:lv.color, fontWeight:700, marginRight:6 }}>{qi+1}.</span>{q.q}
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                {q.opts.map((opt, oi) => (
+                  <ExamOpt key={oi} selected={writingAnswers[qi]===oi} onClick={() => setWritingAnswers(p => ({ ...p, [qi]:oi }))}>
+                    <span style={{ color:lv.color, fontSize:11, marginRight:7, fontFamily:"'Noto Sans',sans-serif" }}>{String.fromCharCode(65+oi)}.</span>{opt}
+                  </ExamOpt>
+                ))}
+              </div>
+            </div>
+          ))}
+          <button onClick={() => { if (Object.keys(writingAnswers).length < lv.examW.length) { alert("¡Respondé todas las preguntas!"); return; } setExamStep(1); }}
+            style={{ width:"100%", background:lv.color, color:"white", padding:"14px", borderRadius:9, border:"none", fontFamily:"'Bebas Neue',sans-serif", fontSize:19, letterSpacing:2, cursor:"pointer", marginTop:6 }}>
+            CONTINUAR → PRONUNCIACIÓN
+          </button>
+        </div>
+      )}
+
+
+      {/* PRONUNCIACIÓN */}
+      {examStep===1 && (
+        <div style={{ animation:"fadeUp .4s ease" }}>
+          <div style={{ marginBottom:24 }}>
+            <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:20, color:"#f0ece0", letterSpacing:1 }}>🎤 Pronunciación</div>
+            <div style={{ fontSize:12, color:"rgba(240,236,224,.42)", fontFamily:"'Noto Sans',sans-serif", marginTop:3 }}>
+              Escuchá el ejemplo (🔊) y hablá (🎤). El sistema evalúa tu pronunciación y da feedback. Requiere Chrome y micrófono.
+            </div>
+          </div>
+          {lv.examS.map((ph, i) => {
+            const result = speakingResults[i], fb = speakingFeedback[i];
+            const sc = result?.score ?? 0;
+            const scoreColor = result ? (sc>=.7?"#2ecc71":sc>=.4?"#D4AF37":"#e74c3c") : lv.color;
+            return (
+              <div key={i} style={{ background:"rgba(12,18,30,.95)", border:`1px solid ${result?(sc>=.5?"#2ecc7135":"#E8192C35"):lv.color+"25"}`, borderRadius:12, padding:22, marginBottom:14 }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16, marginBottom:result||fb?12:0 }}>
+                  <div>
+                    <div style={{ fontFamily:"'Crimson Pro',serif", fontSize:26, color:"#f0ece0", marginBottom:2 }}>{ph.ru}</div>
+                    <div style={{ fontSize:12, color:"rgba(240,236,224,.42)", fontFamily:"'Noto Sans',sans-serif" }}>{ph.es}</div>
+                  </div>
+                  <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+                    <button onClick={() => speakRu(ph.ru)} style={{ background:"rgba(255,255,255,.07)", border:"1px solid rgba(255,255,255,.14)", color:"#f0ece0", padding:"8px 12px", borderRadius:7, fontSize:18, cursor:"pointer" }}>🔊</button>
+                    <button disabled={speakingLoading} onClick={() => handleSpeak(ph, i)} style={{ background:result?(sc>=.5?"#2ecc71":"#e74c3c"):lv.color, color:"white", padding:"8px 16px", borderRadius:7, border:"none", fontFamily:"'Noto Sans',sans-serif", fontSize:13, fontWeight:600, cursor:speakingLoading?"not-allowed":"pointer", opacity:speakingLoading&&!fb?.loading?0.5:1, animation:fb?.loading?"recordPulse 1s infinite":"none" }}>
+{fb?.loading ? "⏺ Grabando…" : result ? "🔄 Reintentar" : "🎤 Hablar"}
+                    </button>
+                  </div>
+                </div>
+                {result && (
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:fb?.text&&!fb.loading?10:0 }}>
+                    <div style={{ flex:1, height:5, background:"rgba(255,255,255,.08)", borderRadius:3, overflow:"hidden" }}>
+                      <div style={{ width:`${Math.round(sc*100)}%`, height:"100%", background:scoreColor, borderRadius:3, transition:"width .6s" }} />
+                    </div>
+                    <div style={{ fontSize:13, fontWeight:700, color:scoreColor, fontFamily:"'Noto Sans',sans-serif", whiteSpace:"nowrap" }}>{Math.round(sc*100)}%</div>
+                  </div>
+                )}
+                {fb?.text && !fb.loading && <div style={{ background:"rgba(255,255,255,.04)", borderRadius:8, padding:"10px 14px", fontSize:12, color:"rgba(240,236,224,.72)", fontFamily:"'Noto Sans',sans-serif", lineHeight:1.6 }}>{fb.text}</div>}
+                {fb?.loading && <div style={{ fontSize:12, color:"rgba(240,236,224,.38)", fontFamily:"'Noto Sans',sans-serif", padding:"2px 0" }}>{fb.text}</div>}
+              </div>
+            );
+          })}
+          <button onClick={() => setExamStep(2)} style={{ width:"100%", background:lv.color, color:"white", padding:"14px", borderRadius:9, border:"none", fontFamily:"'Bebas Neue',sans-serif", fontSize:19, letterSpacing:2, cursor:"pointer", marginTop:6 }}>
+            CONTINUAR → CULTURA
+          </button>
+        </div>
+      )}
+
+{/* CULTURA */}
+      {examStep===2 && (
+        <div style={{ animation:"fadeUp .4s ease" }}>
+          <div style={{ marginBottom:24 }}>
+            <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:20, color:"#f0ece0", letterSpacing:1 }}>🏛️ Cultura Rusa</div>
+            <div style={{ fontSize:12, color:"rgba(240,236,224,.42)", fontFamily:"'Noto Sans',sans-serif", marginTop:3 }}>Preguntas sobre geografía, historia y tradiciones de Rusia.</div>
+          </div>
+          {lv.examC.map((q, qi) => (
+            <div key={qi} style={{ background:"rgba(12,18,30,.95)", border:"1px solid rgba(255,255,255,.07)", borderRadius:12, padding:22, marginBottom:14 }}>
+              <div style={{ fontFamily:"'Crimson Pro',serif", fontSize:17, color:"#f0ece0", marginBottom:14 }}>
+                <span style={{ color:"#D4AF37", fontWeight:700, marginRight:6 }}>{qi+1}.</span>{q.q}
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {q.opts.map((opt, oi) => (
+                  <ExamOpt key={oi} selected={cultureAnswers[qi]===oi} onClick={() => setCultureAnswers(p => ({ ...p, [qi]:oi }))}>
+                    <span style={{ color:"#D4AF37", fontSize:11, marginRight:8, fontFamily:"'Noto Sans',sans-serif" }}>{String.fromCharCode(65+oi)}.</span>{opt}
+                  </ExamOpt>
+                ))}
+              </div>
+            </div>
+          ))}
+          <button onClick={() => { if (Object.keys(cultureAnswers).length < lv.examC.length) { alert("¡Respondé todas las preguntas!"); return; } setExamStep(3); }}
+            style={{ width:"100%", background:"#D4AF37", color:"#07090f", padding:"14px", borderRadius:9, border:"none", fontFamily:"'Bebas Neue',sans-serif", fontSize:19, letterSpacing:2, cursor:"pointer", marginTop:6, fontWeight:900 }}>
+            VER RESULTADOS 📊
+          </button>
+        </div>
+      )}
+{/* RESULTADOS */}
+      {examStep===3 && (() => {
+        const sc = calcScore();
+        const idx = LEVELS.findIndex(l => l.id === lv.id);
+        const hasNext = idx < LEVELS.length - 1;
+        return (
+          <div style={{ animation:"fadeUp .5s ease", textAlign:"center" }}>
+            <div style={{ fontSize:72, marginBottom:12 }}>{sc.pass?"🏆":"📚"}</div>
+            <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:60, color:sc.pass?"#2ecc71":"#E8192C", letterSpacing:3, lineHeight:1, marginBottom:6 }}>{sc.pct}%</div>
+            <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:28, color:"#f0ece0", letterSpacing:2, marginBottom:8 }}>{sc.pass?"¡APROBADO!":"NO APROBADO"}</div>
+            <div style={{ fontSize:14, color:"rgba(240,236,224,.5)", fontFamily:"'Noto Sans',sans-serif", marginBottom:28 }}>
+              {sc.correct} de {sc.total} correctas · {sc.pass ? (hasNext?`¡Desbloqueás el nivel ${LEVELS[idx+1].badge}!`:"¡Completaste todos los niveles! 🎉") : "Necesitás 70% para aprobar. ¡Repasá y volvé a intentarlo!"}
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:32 }}>
+              {[{label:"✍️ Escritura",count:sc.wC,total:lv.examW.length,color:lv.color},{label:"🎤 Pronunciación",count:sc.sC,total:lv.examS.length,color:"#D4AF37"},{label:"🏛️ Cultura",count:sc.cC,total:lv.examC.length,color:"#2ecc71"}].map((s, i) => (
+                <div key={i} style={{ background:"rgba(12,18,30,.95)", border:`1px solid ${s.color}30`, borderRadius:10, padding:16 }}>
+                  <div style={{ fontSize:11, color:"rgba(240,236,224,.38)", fontFamily:"'Noto Sans',sans-serif", marginBottom:6 }}>{s.label}</div>
+                  <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:32, color:s.color }}>{s.count}/{s.total}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
+              {!sc.pass && <button onClick={onBack} style={{ background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.14)", color:"#f0ece0", padding:"12px 20px", borderRadius:8, cursor:"pointer", fontFamily:"'Noto Sans',sans-serif", fontSize:14 }}>📖 Repasar</button>}
+              <button onClick={() =>
+onComplete(sc.pass)} style={{ background:sc.pass?"#2ecc71":lv.color, border:"none", color:"white", padding:"12px 28px", borderRadius:8, cursor:"pointer", fontFamily:"'Bebas Neue',sans-serif", fontSize:sc.pass?22:18, letterSpacing:2, boxShadow:sc.pass?"0 4px 24px rgba(46,204,113,.35)":"none" }}>
+                {sc.pass?(hasNext?`🚀 NIVEL ${LEVELS[idx+1].badge}`:"🎉 FINALIZAR"):"🔄 REINTENTAR"}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+function ChatPanel({ open, setOpen, messages, input, setInput, onSend, loading, endRef }) {
+  return (
+    <div style={{ position:"fixed", bottom:24, right:24, zIndex:200 }}>
+      {open && (
+        <div style={{ width:370, height:530, display:"flex", flexDirection:"column", background:"rgba(8,11,20,.97)", border:"1px solid rgba(232,25,44,.3)", borderRadius:16, boxShadow:"0 24px 80px rgba(0,0,0,.6)", backdropFilter:"blur(24px)", marginBottom:10, overflow:"hidden", animation:"slideRight .3s ease" }}>
+          <div style={{ padding:"14px 18px", borderBottom:"1px solid rgba(232,25,44,.15)", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ width:34, height:34, background:"#E8192C", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>🤖</div>
+              <div>
+                <div style={{ fontFamily:"'Noto Sans',sans-serif", fontWeight:700, fontSize:13, color:"#f0ece0" }}>Asistente de Ruso</div>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                  <div style={{ width:6, height:6, borderRadius:"50%", background:"#2ecc71" }} />
+                  <div style={{ fontSize:10, color:"#2ecc71", fontFamily:"'Noto Sans',sans-serif" }}>Local · Sin internet</div>
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setOpen(false)} style={{ background:"none", border:"none", color:"rgba(255,255,255,.4)", cursor:"pointer", fontSize:18, padding:4 }}>✕</button>
+          </div>
+          <div style={{ flex:1, overflowY:"auto", padding:"14px 16px", display:"flex", flexDirection:"column", gap:10 }}>
+            {messages.map((msg, i) => (
+              <div key={i} style={{ display:"flex", justifyContent:msg.role==="user"?"flex-end":"flex-start", animation:"fadeUp .3s ease" }}>
+                <div style={{ maxWidth:"86%", padding:"9px 13px", borderRadius:msg.role==="user"?"14px 14px 4px 14px":"14px 14px 14px 4px",
+background:msg.role==="user"?"#E8192C":"rgba(255,255,255,.07)", border:msg.role==="user"?"none":"1px solid rgba(255,255,255,.1)",
+                  fontSize:13, color:"#f0ece0", fontFamily:"'Noto Sans',sans-serif", lineHeight:1.55, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div style={{ display:"flex", justifyContent:"flex-start" }}>
+                <div style={{ padding:"10px 16px", background:"rgba(255,255,255,.07)", borderRadius:"14px 14px 14px 4px", border:"1px solid rgba(255,255,255,.1)" }}>
+                  <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                    {[0,1,2].map(d => <div key={d} style={{ width:7, height:7, borderRadius:"50%", background:"#E8192C", animation:`pulse 1s ${d*.2}s infinite` }} />)}
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={endRef} />
+          </div>
+          {messages.length <= 1 && (
+            <div style={{ padding:"6px 14px 8px", display:"flex", flexWrap:"wrap", gap:5, borderTop:"1px solid rgba(255,255,255,.05)", flexShrink:0 }}>
+              {["¿Cómo pronuncio la Ж?","¿Qué son los casos?","Cultura rusa 🏛️","Consejos para estudiar 📚","¿Qué es el Baikal?"].map(s => (
+                <button key={s} onClick={() => setInput(s)} style={{ background:"rgba(232,25,44,.1)", border:"1px solid rgba(232,25,44,.28)", color:"#E8192C", padding:"4px 9px", borderRadius:20, fontSize:10, cursor:"pointer", fontFamily:"'Noto Sans',sans-serif" }}>{s}</button>
+              ))}
+         
