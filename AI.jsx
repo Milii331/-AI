@@ -153,4 +153,61 @@ function getAIResponse(input) {
 
   return R(AI_RESPONSES.fallback);
 }
+// Respuesta con delay simulado
+function simulateAI(input) {
+  return new Promise(resolve => {
+    const delay = 650 + Math.random() * 700;
+    setTimeout(() => resolve(getAIResponse(input)), delay);
+  });
+}
 
+// ─── Feedback de pronunciación (local) ──────────────────
+const PHRASE_TIPS = {
+  "привет":          "La П es oclusiva sin aspiración. Acento en la 2ª sílaba: pri-VIET. La Е suena 'ye', la T final sin aspirar.",
+  "спасибо":         "El grupo СП va unido: 'spa'. Acento: spa-SI-ba. La О final se reduce a 'a' (reducción vocálica rusa).",
+  "до свидания":     "Son dos palabras: 'до' (hasta) + 'свидания'. Acento: do svi-DA-ni-ya. La С de свидания es suave.",
+  "красный":         "Acento en la 1ª sílaba: KRAS-ny. La Р debe vibrar. El grupo СН se pronuncia junto sin pausa.",
+  "мама и папа":     "Ambas palabras llevan acento en la 1ª sílaba. La И entre ellas es corta. Muy similar al español.",
+  "я не понимаю":    "Acento en 'я' y en 'по-ни-МА-ю'. La Я suena 'ya'. El grupo ПН va unido, sin vocal entre medio.",
+  "где метро?":      "Г suena como G española. Acento: gde met-RO. La Д en 'где' es suave antes de Е.",
+  "я хочу есть":     "Х suena como J suave. Acento: ya kho-CHU yest'. La Ч es como 'ch' española.",
+  "спасибо большое": "Dos palabras: spa-SI-ba bol'-SHO-ye. La Ь en 'большое' suaviza la Л antes de ella.",
+  "какая погода?":   "Acento: ka-KA-ya pa-GO-da. La О sin acento en 'погода' se reduce a 'a': paGOda.",
+  "сегодня холодно": "Atención: 'сегодня' se pronuncia [sivódnya] — la Г desaparece! Acento: si-VOD-nya kHO-lad-na.",
+  "я иду в кино":    "La И en 'иду' es breve. 'В' antes de К suena casi como 'f'. Acento: ya i-DU f ki-NO.",
+  "по моему мнению": "Acento: po mo-YE-mu MNE-ni-yu. El grupo МН va unido sin vocal intermedia.",
+  "я думаю что это интересно": "Acento: ya DU-ma-yu shto E-ta in-tye-RES-na. 'Что' suena [shto]. La Э en 'это' es abierta.",
+  "расскажи мне о себе": "Acento: ras-ska-ZHI mne o si-BYE. La Ж es el sonido de 'vision'. La Е en 'себе' suena 'ye'.",
+};
+
+function getPronunciationFeedback(score, phraseRu) {
+  const tip = PHRASE_TIPS[phraseRu.toLowerCase().replace(/[.,!?]/g,"").trim()];
+  let msg;
+  if (score >= 0.85) {
+    msg = R([
+      "🎉 ¡Excelente pronunciación! El reconocimiento captó la frase con altísima precisión. Estás progresando muy bien.",
+      "🌟 ¡Perfecto! Tu pronunciación fue reconocida claramente. Seguí con esta consistencia.",
+      "👏 ¡Muy bien! Prácticamente idéntico al original. Tu dicción en ruso está mejorando notablemente.",
+    ]);
+  } else if (score >= 0.65) {
+    msg = R([
+      "👍 ¡Buen intento! Estás en el camino correcto. Con un poco más de práctica llegás al 100%.",
+      "😊 Bastante bien! El reconocimiento captó partes clave de la frase. ¡Seguí practicando!",
+    ]);
+    if (tip) msg += `\n\n💡 Consejo fonético: ${tip}`;
+  } else if (score >= 0.35) {
+    msg = R([
+      "💪 Estás practicando, eso es lo importante. Escuchá el ejemplo (🔊) varias veces antes de intentarlo.",
+      "🔄 ¡Seguí intentando! Los sonidos rusos necesitan tiempo para los hispanohablantes.",
+    ]);
+    if (tip) msg += `\n\n📌 ${tip}`;
+    else msg += "\n\n📌 Tip: enfocate en una sílaba a la vez, no en la frase entera.";
+  } else {
+    msg = R([
+      "🎯 No te rindas — el ruso requiere práctica constante. Escuchá el ejemplo varias veces primero.",
+      "🌱 El reconocimiento necesita más claridad. Probá hablar más despacio y vocalizando cada letra.",
+    ]);
+    if (tip) msg += `\n\n📌 Clave: ${tip}`;
+  }
+  return msg;
+}
