@@ -979,3 +979,101 @@ background:msg.role==="user"?"#E8192C":"rgba(255,255,255,.07)", border:msg.role=
 }
 
 //
+═══════════════════════════════════════════════════════
+//  APP
+// ═══════════════════════════════════════════════════════
+export default function App() {
+  const [view, setView]                         = useState("home");
+  const [selectedLevel, setSelectedLevel]       = useState(null);
+  const [lessonTab, setLessonTab]               = useState("vocab");
+  const [unlocked, setUnlocked]                 = useState(new Set(["A1.1"]));
+  const [completed, setCompleted]               = useState(new Set());
+  const [examStep, setExamStep]                 = useState(0);
+  const [writingAnswers, setWritingAnswers]      = useState({});
+  const [speakingResults, setSpeakingResults]   = useState([]);
+  const [cultureAnswers, setCultureAnswers]     = useState({});
+  const [speakingFeedback, setSpeakingFeedback] = useState({});
+  const [isRecording, setIsRecording]           = useState(false);
+  const [speakingLoading, setSpeakingLoading]   = useState(false);
+  const [chatOpen, setChatOpen]                 = useState(false);
+  const [chatMsgs, setChatMsgs]                 = useState([{
+    role:"assistant",
+    content:"¡Привет! 👋 Soy tu asistente de ruso.\n\nPodés preguntarme sobre:\n• Pronunciación de letras (Ж, Р, Ш, Ы...)\n• Gramática (casos, género, verbos...)\n• Cultura (Baikal, Gagarin, ballet, gastronomía...)\n• Consejos para aprender más rápido\n\n¿Qué te gustaría saber?"
+  }]);
+  const [chatInput, setChatInput]   = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef(null);
+useEffect(() => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Noto+Sans:wght@300;400;600;700&display=swap";
+    document.head.appendChild(link);
+    const style = document.createElement("style");
+    style.textContent = `
+      *{box-sizing:border-box;margin:0;padding:0}
+      html,body{background:#07090f;color:#f0ece0;overflow-x:hidden}
+      ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0f1520}::-webkit-scrollbar-thumb{background:#E8192C;border-radius:3px}
+      @keyframes floatLetter{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-24px) rotate(5deg)}}
+      @keyframes fadeUp{from{transform:translateY(22px);opacity:0}to{transform:translateY(0);opacity:1}}
+      @keyframes slideRight{from{transform:translateX(80px);opacity:0}to{transform:translateX(0);opacity:1}}
+      @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+      @keyframes glow{0%,100%{box-shadow:0 0 12px rgba(232,25,44,.35)}50%{box-shadow:0 0 32px rgba(232,25,44,.75)}}
+      @keyframes recordPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+      input:focus{outline:none}
+    `;
+    document.head.appendChild(style);
+    return () => { try { document.head.removeChild(link); document.head.removeChild(style); } catch(e) {} };
+  }, []);
+
+  // Persistencia con window.storage
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await window.storage.get("ru-progress");
+        if (s) { const {u,c} = JSON.parse(s.value); if(u?.length) setUnlocked(new Set(u)); if(c?.length) setCompleted(new Set(c)); }
+      } catch(e) {}
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => { try { await window.storage.set("ru-progress", JSON.stringify({u:[...unlocked],c:[...completed]})); } catch(e) {} })();
+  }, [unlocked, completed]);
+
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior:"smooth" }); }, [chatMsgs]);
+
+  const openLesson = (lv) => { if (!unlocked.has(lv.id)) return; setSelectedLevel(lv); setLessonTab("vocab"); setView("lesson"); };
+  const startExam = () => { setExamStep(0); setWritingAnswers({}); setSpeakingResults([]); setCultureAnswers({}); setSpeakingFeedback({}); setIsRecording(false); setSpeakingLoading(false); setView("exam"); };
+
+const handleExamComplete = (passed) => {
+    if (passed) {
+      const idx = LEVELS.findIndex(l => l.id === selectedLevel.id);
+      setCompleted(p => new Set([...p, selectedLevel.id]));
+      if (idx < LEVELS.length - 1) setUnlocked(p => new Set([...p, LEVELS[idx+1].id]));
+      setView("home");
+    } else { startExam(); }
+  };
+
+  const handleChatSend = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+    const msg = chatInput.trim();
+    setChatInput("");
+    setChatMsgs(p => [...p, { role:"user", content:msg }]);
+    setChatLoading(true);
+    const resp = await simulateAI(msg);  // ← IA local, sin API
+    setChatMsgs(p => [...p, { role:"assistant", content:resp }]);
+    setChatLoading(false);
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#07090f", color:"#f0ece0", fontFamily:"'Noto Sans',sans-serif" }}>
+      <BgDecor />
+      <TopNav levels={LEVELS} unlocked={unlocked} completed={completed} openLesson={openLesson} chatOpen={chatOpen} setChatOpen={setChatOpen} />
+      <main>
+        {view==="home"   && <HomeView levels={LEVELS} unlocked={unlocked} completed={completed} openLesson={openLesson} />}
+        {view==="lesson" && <LessonView level={selectedLevel} lessonTab={lessonTab} setLessonTab={setLessonTab} onBack={() => setView("home")} onStartExam={startExam} />}
+        {view==="exam"   && <ExamView level={selectedLevel} examStep={examStep} setExamStep={setExamStep} writingAnswers={writingAnswers} setWritingAnswers={setWritingAnswers} speakingResults={speakingResults} setSpeakingResults={setSpeakingResults} cultureAnswers={cultureAnswers} setCultureAnswers={setCultureAnswers} speakingFeedback={speakingFeedback} setSpeakingFeedback={setSpeakingFeedback} isRecording={isRecording} setIsRecording={setIsRecording} speakingLoading={speakingLoading} setSpeakingLoading={setSpeakingLoading} onBack={() => setView("lesson")} onComplete={handleExamComplete} />}
+      </main>
+      <ChatPanel open={chatOpen} setOpen={setChatOpen} messages={chatMsgs} input={chatInput} setInput={setChatInput} onSend={handleChatSend} loading={chatLoading} endRef={chatEndRef} />
+    </div>
+  );
+}
