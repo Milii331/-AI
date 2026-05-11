@@ -132,3 +132,25 @@ function getAIResponse(input) {
   if (has("género","genero","masculino","femenino","neutro")) return R(AI_RESPONSES.genero);
   if (has("pasado","pretérito","pasado ruso","tiempo verbal","ayer")) return R(AI_RESPONSES.pasado);
   if (has("movimiento","идти","ехать","idti","yekhat","ir a pie","en vehículo")) return R(AI_RESPONSES.movimiento);
+  if (has("matrioshka","matriuska","матрёш","muñeca rusa")) return R(AI_RESPONSES.matrioshka);
+  if (has("baikal","байкал","lago baikal","profundo")) return R(AI_RESPONSES.baikal);
+  if (has("gagarin","гагарин","cosmonauta","espacio","vostok","поехали")) return R(AI_RESPONSES.gagarin);
+  if (has("borsch","борщ","pelmeni","blini","comida","gastronomía","gastronomia","cocina rusa")) return R(AI_RESPONSES.gastronomia);
+  if (has("ballet","tchaikovsky","чайковский","lago cisne","bolshoi","bolshói","mariinski")) return R(AI_RESPONSES.ballet);
+  if (has("moscú","moscu","москва","kremlin","plaza roja","красная")) return R(AI_RESPONSES.moscu);
+  if (has("tolstoi","tolstói","dostoiev","pushkin","chekhov","чехов","literatur","novela")) return R(AI_RESPONSES.literatura);
+  if (has("samovar","самовар","té ruso","chay","чай","tetera")) return R(AI_RESPONSES.te_samovar);
+  if (has("historia","soviet","urss","zar","revoluc","bolchev","zarr")) return R(AI_RESPONSES.historia);
+
+  if (has("número","numero","contar","cifra","uno","dos","tres","cuatro","cinco")) return R(AI_RESPONSES.numeros);
+  if (has("color","colores","rojo","azul","verde","amarillo","negro","blanco")) return R(AI_RESPONSES.colores);
+  if (has("familia","mamá","papá","hermano","hermana","babushka","abuelo","abuela")) return R(AI_RESPONSES.familia);
+  if (has("viaje","aeropuerto","hotel","turismo","viajar","turista")) return R(AI_RESPONSES.viaje);
+  if (has("restaurant","comida","pedir","menú","menu","comer")) return R(AI_RESPONSES.restaurante);
+
+  if (has("consejo","tip","aprender","estudiar","método","progres","rápido","cuánto tiempo")) return R(AI_RESPONSES.tips);
+  if (has("difícil","dificil","complicado","no entiendo","confundo","me cuesta","no puedo")) return R(AI_RESPONSES.animo);
+
+  return R(AI_RESPONSES.fallback);
+}
+
