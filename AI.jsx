@@ -541,3 +541,146 @@ function TopNav({ levels, unlocked, completed, openLesson, chatOpen, setChatOpen
     </header>
   );
 }
+function HomeView({ levels, unlocked, completed, openLesson }) {
+  const DAILY_TIPS = [
+    "💡 Sabías que el ruso tiene 6 casos gramaticales? El Nominativo y Acusativo son los más frecuentes.",
+    "🎯 Tip: aprendé 5 palabras rusas nuevas por día. En 6 meses tenés vocabulario básico sólido.",
+    "🎤 La letra Р rusa vibra siempre, incluso al inicio de palabra. Practicá: рыба, работа, Россия.",
+    "🏛️ La catedral de San Basilio en la Plaza Roja fue construida por Iván el Terrible en 1555.",
+    "📚 El ruso NO tiene artículos (el/la/un/una). ¡Una cosa menos para aprender!",
+    "🌊 El Lago Baikal contiene el 20% del agua dulce no congelada del planeta.",
+    "🎵 La palabra 'спутник' significa 'compañero de viaje'. Por eso se llamó Sputnik al primer satélite.",
+    "✍️ En ruso el orden de las palabras es libre. Los casos gramaticales indican la función de cada palabra.",
+  ];
+  const [tip] = useState(() => DAILY_TIPS[Math.floor(Math.random() * DAILY_TIPS.length)]);
+
+  return (
+    <div style={{ position:"relative", zIndex:1, maxWidth:1100, margin:"0 auto", padding:"52px 28px 80px" }}>
+      <div style={{ textAlign:"center", marginBottom:60, animation:"fadeUp .6s ease" }}>
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:"clamp(52px,9vw,108px)", letterSpacing:4, lineHeight:.88, color:"#f0ece0" }}>ДОБРО</div>
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:"clamp(52px,9vw,108px)", letterSpacing:4, lineHeight:.88, color:"#E8192C" }}>ПОЖАЛОВАТЬ</div>
+        <div style={{ fontFamily:"'Crimson Pro',serif", fontSize:18, color:"rgba(240,236,224,.55)", marginTop:18, letterSpacing:1.5 }}>Bienvenido · De cero a nivel intermedio</div>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, marginTop:22 }}>
+          <div style={{ height:1, width:60, background:"rgba(212,175,55,.35)" }} /><span>⭐</span>
+          <div style={{ height:1, width:60, background:"rgba(212,175,55,.35)" }} />
+        </div>
+      </div>
+
+      {/* Tip del día */}
+      <div style={{ background:"rgba(212,175,55,.07)", border:"1px solid rgba(212,175,55,.25)", borderRadius:10, padding:"14px 18px", marginBottom:32, fontFamily:"'Crimson Pro',serif", fontSize:15, color:"rgba(240,236,224,.8)", lineHeight:1.6 }}>
+        <span style={{ color:"#D4AF37", fontWeight:700, marginRight:8, fontFamily:"'Noto Sans',sans-serif", fontSize:11, letterSpacing:1, textTransform:"uppercase" }}>Sabías que —</span>{tip}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(192px,1fr))", gap:18 }}>
+        {levels.map((lv, i) => {
+          const isLocked = !unlocked.has(lv.id), isDone = completed.has(lv.id);
+          return (
+            <div key={lv.id} onClick={() => openLesson(lv)} style={{ background:"rgba(12,18,30,.92)", borderRadius:14, padding:24, cursor:isLocked?"not-allowed":"pointer",
+              border:`1px solid ${isDone?"#2ecc7140":isLocked?"rgba(255,255,255,.06)":lv.color+"45"}`,
+              position:"relative", overflow:"hidden", opacity:isLocked?.5:1,
+              animation:`fadeUp .5s ease ${i*.1}s both`, transition:"transform .25s,box-shadow .25s",
+              boxShadow:isDone?"0 4px 24px rgba(46,204,113,.12)":isLocked?"none":`0 4px 24px ${lv.color}18` }}
+              onMouseEnter={e => { if (!isLocked) e.currentTarget.style.transform="translateY(-6px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform=""; }}>
+              <div style={{ position:"absolute", top:0, left:0, right:0, height:3, background:isDone?"#2ecc71":isLocked?"rgba(255,255,255,.07)":lv.color }} />
+              <div style={{ position:"absolute", top:14, right:14, fontSize:16 }}>
+                {isDone ? <span style={{ background:"#2ecc71", borderRadius:"50%", width:22, height:22, display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:12 }}>✓</span> : isLocked ? "🔒" : null}
+              </div>
+              <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:40, lineHeight:1, marginBottom:3, color:isDone?"#2ecc71":isLocked?"rgba(255,255,255,.15)":lv.color }}>{lv.badge}</div>
+              <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:17, letterSpacing:1, marginBottom:3, color:isLocked?"rgba(255,255,255,.25)":"#f0ece0" }}>{lv.title}</div>
+              <div style={{ fontSize:10, letterSpacing:1, textTransform:"uppercase", marginBottom:10, color:isLocked?"rgba(255,255,255,.18)":"#D4AF37", fontFamily:"'Noto Sans',sans-serif" }}>{lv.sub}</div>
+              <div style={{ fontSize:12, lineHeight:1.5, color:isLocked?"rgba(255,255,255,.18)":"rgba(240,236,224,.55)", fontFamily:"'Crimson Pro',serif" }}>{lv.desc}</div>
+              {!isLocked && (
+                <div style={{ marginTop:14, display:"flex", gap:5 }}>
+                  <div style={{ padding:"3px 9px", background:`${lv.color}18`, border:`1px solid ${lv.color}35`, borderRadius:12, fontSize:10, color:lv.color, fontFamily:"'Noto Sans',sans-serif" }}>{lv.vocab.length} palabras</div>
+                  <div style={{ padding:"3px 9px", background:"rgba(212,175,55,.08)", border:"1px solid rgba(212,175,55,.28)", borderRadius:12, fontSize:10, color:"#D4AF37", fontFamily:"'Noto Sans',sans-serif" }}>+ examen</div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(195px,1fr))", gap:14, marginTop:48 }}>
+        {[
+          { icon:"📖", t:"Vocabulario completo", d:"10 palabras clave con pronunciación y audio" },
+          { icon:"🎤", t:"Evaluación de voz", d:"Reconocimiento + feedback fonético detallado" },
+          { icon:"🏛️", t:"Cultura rusa", d:"Historia, tradiciones y curiosidades" },
+          { icon:"💾", t:"Progreso guardado", d:"Tu avance persiste entre sesiones" },
+        ].map((f, i) => (
+          <div key={i} style={{ background:"rgba(255,255,255,.025)", border:"1px solid rgba(255,255,255,.06)", borderRadius:10, padding:18, animation:`fadeUp .6s ease ${.35+i*.08}s both` }}>
+            <div style={{ fontSize:26, marginBottom:8 }}>{f.icon}</div>
+            <div style={{ fontFamily:"'Noto Sans',sans-serif", fontWeight:700, fontSize:13, color:"#f0ece0", marginBottom:4 }}>{f.t}</div>
+            <div style={{ fontSize:12, color:"rgba(240,236,224,.45)", fontFamily:"'Crimson Pro',serif", lineHeight:1.5 }}>{f.d}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LessonView({ level, lessonTab, setLessonTab, onBack, onStartExam }) {
+  if (!level) return null;
+  const lv = level;
+  return (
+    <div style={{ position:"relative", zIndex:1, maxWidth:900, margin:"0 auto", padding:"32px 28px 80px", animation:"fadeUp .4s ease" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:30 }}>
+        <button onClick={onBack} style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.12)", color:"#f0ece0", padding:"8px 14px", borderRadius:7, fontFamily:"'Noto Sans',sans-serif", fontSize:13, cursor:"pointer" }}>← Volver</button>
+        <div>
+          <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:30, color:lv.color, letterSpacing:2, lineHeight:1 }}>{lv.badge} — {lv.title}</div>
+          <div style={{ fontSize:12, color:"rgba(240,236,224,.45)", fontFamily:"'Noto Sans',sans-serif" }}>{lv.sub} · {lv.desc}</div>
+        </div>
+      </div>
+      <div style={{ display:"flex", gap:3, marginBottom:26, background:"rgba(255,255,255,.04)", borderRadius:9, padding:4 }}>
+        {["vocab","grammar","phrases"].map(tab => (
+          <button key={tab} onClick={() => setLessonTab(tab)} style={{ flex:1, padding:"10px 14px", borderRadius:6, border:"none",
+            background:lessonTab===tab?lv.color:"transparent", color:lessonTab===tab?"white":"rgba(240,236,224,.55)",
+            fontFamily:"'Noto Sans',sans-serif", fontSize:13, fontWeight:600, cursor:"pointer", transition:"all .2s" }}>
+            {tab==="vocab"?"📖 Vocabulario":tab==="grammar"?"📐 Gramática":"💬 Frases"}
+          </button>
+        ))}
+      </div>
+      {lessonTab==="vocab" && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(183px,1fr))", gap:12 }}>
+          {lv.vocab.map((w, i) => (
+            <div key={i} onClick={() => speakRu(w.ru)} title="Clic para escuchar" style={{ background:"rgba(12,18,30,.95)", border:`1px solid ${lv.color}28`, borderRadius:11, padding:18, textAlign:"center", cursor:"pointer", transition:"transform .2s,box-shadow .2s" }}
+              onMouseEnter={e => { e.currentTarget.style.transform="translateY(-3px)"; e.currentTarget.style.boxShadow=`0 8px 24px ${lv.color}22`; }}
+              onMouseLeave={e => { e.currentTarget.style.transform=""; e.currentTarget.style.boxShadow=""; }}>
+              <div style={{ fontFamily:"'Crimson Pro',serif", fontSize:30, color:"#f0ece0", marginBottom:3, lineHeight:1 }}>{w.ru}</div>
+              <div style={{ fontSize:11, color:lv.color, fontFamily:"'Noto Sans',sans-serif", marginBottom:7, letterSpacing:.5 }}>[{w.p}]</div>
+              <div style={{ fontSize:13, color:"rgba(240,236,224,.65)", fontFamily:"'Crimson Pro',serif" }}>{w.es}</div>
+              <div style={{ fontSize:10, color:"rgba(255,255,255,.18)", marginTop:8 }}>🔊 escuchar</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {lessonTab==="grammar" && (
+        <div style={{ background:"rgba(12,18,30,.95)", border:`1px solid ${lv.color}28`, borderRadius:13, padding:28 }}>
+          <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:24, color:lv.color, letterSpacing:2, marginBottom:10 }}>{lv.grammar.title}</div>
+          <div style={{ fontSize:15, color:"rgba(240,236,224,.7)", fontFamily:"'Crimson Pro',serif", lineHeight:1.75, marginBottom:24 }}>{lv.grammar.intro}</div>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead><tr>{lv.grammar.headers.map((h, i) => (
+                <th key={i} style={{ padding:"10px 14px", background:`${lv.color}18`, border:`1px solid ${lv.color}28`, fontSize:10, color:lv.color, fontFamily:"'Noto Sans',sans-serif", textAlign:"left", letterSpacing:1, textTransform:"uppercase" }}>{h}</th>
+              ))}</tr></thead>
+              <tbody>{lv.grammar.rows.map((row, ri) => (
+                <tr key={ri} style={{ background:ri%2===0?"rgba(255,255,255,.018)":"transparent" }}>
+                  {row.map((cell, ci) => (
+                    <td key={ci} style={{ padding:"9px 14px", border:"1px solid rgba(255,255,255,.055)", fontSize:ci===0?16:13, lineHeight:1.4, color:ci===0?"#f0ece0":"rgba(240,236,224,.68)", fontFamily:ci===0?"'Crimson Pro',serif":"'Noto Sans',sans-serif" }}>{cell}</td>
+                  ))}
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {lessonTab==="phrases" && (
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          {lv.phrases.map((ph, i) => (
+            <div key={i} style={{ background:"rgba(12,18,30,.95)", border:`1px solid ${lv.color}25`, borderRadius:11, padding:20, display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
+              <div>
+                <div style={{ fontFamily:"'Crimson Pro',serif", fontSize:24, color:"#f0ece0", marginBottom:3 }}>{ph.ru}</div>
+                <div style={{ fontSize:11, color:lv.color, fontFamily:"'Noto Sans',sans-serif", marginBottom:5, letterSpacing:.5 }}>[{ph.p}]</div>
+                <div style={{ fontSize:13, color:"rgba(240,236,224,.58)", fontFamily:"'Crimson Pro',serif" }}>{ph.es}</div>
+              </div>
+              <button onClick={() => speakRu(ph.ru)} style={{ background:`${lv.color}1a`, border:`1px solid ${lv.color}40`, color:lv.color, padding:"10px 14px", borderRadius:7, fontSize:20, flexShrink:0, cursor:"pointer" }}>🔊</button>
