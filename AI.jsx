@@ -956,7 +956,26 @@ background:msg.role==="user"?"#E8192C":"rgba(255,255,255,.07)", border:msg.role=
           </div>
           {messages.length <= 1 && (
             <div style={{ padding:"6px 14px 8px", display:"flex", flexWrap:"wrap", gap:5, borderTop:"1px solid rgba(255,255,255,.05)", flexShrink:0 }}>
-              {["¿Cómo pronuncio la Ж?","¿Qué son los casos?","Cultura rusa 🏛️","Consejos para estudiar 📚","¿Qué es el Baikal?"].map(s => (
+                            {["¿Cómo pronuncio la Ж?","¿Qué son los casos?","Cultura rusa 🏛️","Consejos para estudiar 📚","¿Qué es el Baikal?"].map(s => (
                 <button key={s} onClick={() => setInput(s)} style={{ background:"rgba(232,25,44,.1)", border:"1px solid rgba(232,25,44,.28)", color:"#E8192C", padding:"4px 9px", borderRadius:20, fontSize:10, cursor:"pointer", fontFamily:"'Noto Sans',sans-serif" }}>{s}</button>
               ))}
-         
+            </div>
+          )}
+          <div style={{ padding:"11px 13px", borderTop:"1px solid rgba(255,255,255,.07)", display:"flex", gap:8, flexShrink:0 }}>
+            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key==="Enter" && !e.shiftKey && onSend()}
+              placeholder="Preguntá sobre ruso o cultura…"
+              style={{ flex:1, background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.11)", borderRadius:8, padding:"9px 12px", color:"#f0ece0", fontSize:13, fontFamily:"'Noto Sans',sans-serif", outline:"none" }} />
+            <button onClick={onSend} disabled={loading || !input.trim()} style={{ background:"#E8192C", border:"none", color:"white", padding:"9px 14px", borderRadius:8, fontSize:17, cursor:loading||!input.trim()?"not-allowed":"pointer", opacity:loading||!input.trim()?0.5:1, transition:"opacity .2s" }}>➤</button>
+          </div>
+        </div>
+      )}
+      <button onClick={() => setOpen(o => !o)} style={{ width:56, height:56, borderRadius:"50%", background:"#E8192C", border:"none", color:"white", fontSize:22, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 4px 24px rgba(232,25,44,.5)", animation:"glow 2.5s ease-in-out infinite", transition:"transform .2s" }}
+        onMouseEnter={e => e.currentTarget.style.transform="scale(1.1)"}
+        onMouseLeave={e => e.currentTarget.style.transform=""}>
+        {open?"✕":"💬"}
+      </button>
+    </div>
+  );
+}
+
+//
