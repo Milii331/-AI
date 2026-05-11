@@ -157,4 +157,928 @@ function getAIResponse(input) {
 
 // Respuesta con delay simulado
 function simulateAI(input) {
-  return ne
+  return new Promise(resolve => {
+    const delay = 650 + Math.random() * 700;
+    setTimeout(() => resolve(getAIResponse(input)), delay);
+  });
+}
+
+// ─── Feedback de pronunciación (local) ──────────────────
+const PHRASE_TIPS = {
+  "привет":          "La П es oclusiva sin aspiración. Acento en la 2ª sílaba: pri-VIET. La Е suena 'ye', la T final sin aspirar.",
+  "спасибо":         "El grupo СП va unido: 'spa'. Acento: spa-SI-ba. La О final se reduce a 'a' (reducción vocálica rusa).",
+  "до свидания":     "Son dos palabras: 'до' (hasta) + 'свидания'. Acento: do svi-DA-ni-ya. La С de свидания es suave.",
+  "красный":         "Acento en la 1ª sílaba: KRAS-ny. La Р debe vibrar. El grupo СН se pronuncia junto sin pausa.",
+  "мама и папа":     "Ambas palabras llevan acento en la 1ª sílaba. La И entre ellas es corta. Muy similar al español.",
+  "я не понимаю":    "Acento en 'я' y en 'по-ни-МА-ю'. La Я suena 'ya'. El grupo ПН va unido, sin vocal entre medio.",
+  "где метро?":      "Г suena como G española. Acento: gde met-RO. La Д en 'где' es suave antes de Е.",
+  "я хочу есть":     "Х suena como J suave. Acento: ya kho-CHU yest'. La Ч es como 'ch' española.",
+  "спасибо большое": "Dos palabras: spa-SI-ba bol'-SHO-ye. La Ь en 'большое' suaviza la Л antes de ella.",
+  "какая погода?":   "Acento: ka-KA-ya pa-GO-da. La О sin acento en 'погода' se reduce a 'a': paGOda.",
+  "сегодня холодно": "Atención: 'сегодня' se pronuncia [sivódnya] — la Г desaparece! Acento: si-VOD-nya kHO-lad-na.",
+  "я иду в кино":    "La И en 'иду' es breve. 'В' antes de К suena casi como 'f'. Acento: ya i-DU f ki-NO.",
+  "по моему мнению": "Acento: po mo-YE-mu MNE-ni-yu. El grupo МН va unido sin vocal intermedia.",
+  "я думаю что это интересно": "Acento: ya DU-ma-yu shto E-ta in-tye-RES-na. 'Что' suena [shto]. La Э en 'это' es abierta.",
+  "расскажи мне о себе": "Acento: ras-ska-ZHI mne o si-BYE. La Ж es el sonido de 'vision'. La Е en 'себе' suena 'ye'.",
+};
+
+function getPronunciationFeedback(score, phraseRu) {
+  const tip = PHRASE_TIPS[phraseRu.toLowerCase().replace(/[.,!?]/g,"").trim()];
+  let msg;
+  if (score >= 0.85) {
+    msg = R([
+      "🎉 ¡Excelente pronunciación! El reconocimiento captó la frase con altísima precisión. Estás progresando muy bien.",
+      "🌟 ¡Perfecto! Tu pronunciación fue reconocida claramente. Seguí con esta consistencia.",
+      "👏 ¡Muy bien! Prácticamente idéntico al original. Tu dicción en ruso está mejorando notablemente.",
+    ]);
+  } else if (score >= 0.65) {
+    msg = R([
+      "👍 ¡Buen intento! Estás en el camino correcto. Con un poco más de práctica llegás al 100%.",
+      "😊 Bastante bien! El reconocimiento captó partes clave de la frase. ¡Seguí practicando!",
+    ]);
+    if (tip) msg += `\n\n💡 Consejo fonético: ${tip}`;
+  } else if (score >= 0.35) {
+    msg = R([
+      "💪 Estás practicando, eso es lo importante. Escuchá el ejemplo (🔊) varias veces antes de intentarlo.",
+      "🔄 ¡Seguí intentando! Los sonidos rusos necesitan tiempo para los hispanohablantes.",
+    ]);
+    if (tip) msg += `\n\n📌 ${tip}`;
+    else msg += "\n\n📌 Tip: enfocate en una sílaba a la vez, no en la frase entera.";
+  } else {
+    msg = R([
+      "🎯 No te rindas — el ruso requiere práctica constante. Escuchá el ejemplo varias veces primero.",
+      "🌱 El reconocimiento necesita más claridad. Probá hablar más despacio y vocalizando cada letra.",
+    ]);
+    if (tip) msg += `\n\n📌 Clave: ${tip}`;
+  }
+  return msg;
+}
+
+// ═══════════════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════════════
+const LEVELS = [
+  {
+    id:"A1.1",badge:"A1.1",title:"Начало",sub:"Principiante I",
+    desc:"Alfabeto cirílico, saludos y presentaciones",color:"#E8192C",
+    vocab:[
+      {ru:"Привет",p:"Privet",es:"Hola (informal)"},
+      {ru:"Здравствуйте",p:"Zdravstvuyte",es:"Hola (formal)"},
+      {ru:"Пока",p:"Poka",es:"Adiós (informal)"},
+      {ru:"До свидания",p:"Do svidaniya",es:"Adiós (formal)"},
+      {ru:"Спасибо",p:"Spasibo",es:"Gracias"},
+      {ru:"Пожалуйста",p:"Pozhaluysta",es:"Por favor / De nada"},
+      {ru:"Да",p:"Da",es:"Sí"},
+      {ru:"Нет",p:"Net",es:"No"},
+      {ru:"Извините",p:"Izvinite",es:"Disculpe"},
+      {ru:"Меня зовут...",p:"Menya zovut...",es:"Me llamo..."},
+    ],
+    grammar:{
+      title:"El Alfabeto Cirílico",
+      intro:"El alfabeto cirílico tiene 33 letras, creado en el siglo IX. Es fonéticamente regular — cada letra suena casi siempre igual. ¡Muchas se parecen al alfabeto latino!",
+      headers:["Letra","Sonido","Ejemplo"],
+      rows:[
+        ["А а","a (padre)","Арбуз — sandía"],["Б б","b","Банан — plátano"],
+        ["В в","v","Вода — agua"],["Г г","g","Город — ciudad"],
+        ["Д д","d","Дом — casa"],["Е е","ye","Еда — comida"],
+        ["Ж ж","zh (visión)","Жить — vivir"],["З з","z","Зима — invierno"],
+        ["И и","i","Имя — nombre"],["К к","k","Кот — gato"],
+        ["Л л","l","Луна — luna"],["М м","m","Мама — mamá"],
+        ["Н н","n","Нет — no"],["О о","o","Окно — ventana"],
+        ["П п","p","Папа — papá"],["Р р","r (vibrante)","Рыба — pez"],
+        ["С с","s","Сон — sueño"],["Т т","t","Там — allí"],
+        ["У у","u","Утро — mañana"],["Х х","j (suave)","Хлеб — pan"],
+        ["Ц ц","ts","Цвет — color"],["Ч ч","ch","Чай — té"],
+        ["Ш ш","sh","Школа — escuela"],["Я я","ya","Яблоко — manzana"],
+      ],
+    },
+    phrases:[
+      {ru:"Как тебя зовут?",p:"Kak tebya zovut?",es:"¿Cómo te llamas?"},
+      {ru:"Меня зовут Анна.",p:"Menya zovut Anna.",es:"Me llamo Anna."},
+      {ru:"Очень приятно!",p:"Ochen priyatno!",es:"¡Mucho gusto!"},
+      {ru:"Как дела?",p:"Kak dela?",es:"¿Cómo estás?"},
+      {ru:"Хорошо, спасибо!",p:"Khorosho, spasibo!",es:"¡Bien, gracias!"},
+    ],
+    examW:[
+      {q:'¿Cómo se dice "Gracias"?',opts:["Привет","Пожалуйста","Спасибо","Пока"],a:2},
+      {q:'¿Qué significa "Да"?',opts:["No","Sí","Gracias","Hola"],a:1},
+      {q:'¿Cómo se dice "Adiós" informal?',opts:["Пока","Привет","Нет","Спасибо"],a:0},
+      {q:'"Меня зовут" significa:',opts:["Tengo hambre","Me llamo","Buenos días","Por favor"],a:1},
+      {q:'¿Cuál es el saludo formal?',opts:["Привет","Пока","Здравствуйте","Нет"],a:2},
+    ],
+    examS:[{ru:"Привет",es:"Hola"},{ru:"Спасибо",es:"Gracias"},{ru:"До свидания",es:"Adiós"}],
+    examC:[
+      {q:"¿Cuál es la capital de Rusia?",opts:["San Petersburgo","Moscú","Novosibirsk","Kiev"],a:1},
+      {q:"¿En qué continentes está Rusia?",opts:["Solo Europa","Solo Asia","Europa y Asia","América y Asia"],a:2},
+      {q:"¿Cuál es el lago más profundo del mundo, en Rusia?",opts:["Lago Ladoga","Lago Onega","Lago Baikal","Mar Caspio"],a:2},
+    ],
+  },
+  {
+    id:"A1.2",badge:"A1.2",title:"Первые слова",sub:"Principiante II",
+    desc:"Números, colores y vocabulario familiar",color:"#E06020",
+    vocab:[
+      {ru:"один / одна",p:"odin / odna",es:"uno / una"},
+      {ru:"два / две",p:"dva / dve",es:"dos"},
+      {ru:"три",p:"tri",es:"tres"},
+      {ru:"красный",p:"krasny",es:"rojo"},
+      {ru:"синий",p:"siny",es:"azul"},
+      {ru:"белый",p:"bely",es:"blanco"},
+      {ru:"чёрный",p:"chorny",es:"negro"},
+      {ru:"мама",p:"mama",es:"mamá"},
+      {ru:"папа",p:"papa",es:"papá"},
+      {ru:"брат / сестра",p:"brat / sestra",es:"hermano / hermana"},
+    ],
+    grammar:{
+      title:"Género Gramatical",
+      intro:"Los sustantivos rusos tienen tres géneros: masculino, femenino y neutro. El género determina cómo cambian los adjetivos que los acompañan.",
+      headers:["Género","Terminación","Ejemplo"],
+      rows:[
+        ["Masculino","consonante","брат (hermano), дом (casa)"],
+        ["Femenino","-а / -я","сестра (hermana), семья (familia)"],
+        ["Neutro","-о / -е","окно (ventana), море (mar)"],
+        ["Adjetivo M","-ый / -ий","красный, синий"],
+        ["Adjetivo F","-ая / -яя","красная, синяя"],
+        ["Adjetivo N","-ое / -ее","красное, синее"],
+      ],
+    },
+    phrases:[
+      {ru:"Сколько стоит?",p:"Skolko stoit?",es:"¿Cuánto cuesta?"},
+      {ru:"Я не понимаю",p:"Ya ne ponimayu",es:"No entiendo"},
+      {ru:"Повторите, пожалуйста",p:"Povtorite, pozhaluysta",es:"Repita, por favor"},
+      {ru:"У меня есть брат",p:"U menya yest brat",es:"Tengo un hermano"},
+      {ru:"Какой цвет?",p:"Kakoy tsvet?",es:"¿Qué color?"},
+    ],
+    examW:[
+      {q:'¿Cómo se dice "rojo"?',opts:["синий","белый","красный","чёрный"],a:2},
+      {q:'¿Qué significa "два"?',opts:["uno","dos","tres","cuatro"],a:1},
+      {q:'¿Cómo se dice "hermana"?',opts:["брат","мама","сестра","папа"],a:2},
+      {q:'"Я не понимаю" significa:',opts:["No hablo","No entiendo","No sé","No quiero"],a:1},
+      {q:'¿Cuál es el color negro?',opts:["красный","синий","белый","чёрный"],a:3},
+    ],
+    examS:[{ru:"Красный",es:"Rojo"},{ru:"Мама и папа",es:"Mamá y papá"},{ru:"Я не понимаю",es:"No entiendo"}],
+    examC:[
+      {q:"Instrumento de cuerdas ruso de 3 cuerdas:",opts:["Balalaika","Bayan","Gusli","Domra"],a:0},
+      {q:"¿Qué bebida se sirve en un samovar?",opts:["Café","Té","Cacao","Leche"],a:1},
+      {q:"Catedral de colores en la Plaza Roja:",opts:["Catedral del Salvador","Catedral de San Basilio","Catedral de la Asunción","Catedral de Kazán"],a:1},
+    ],
+  },
+  {
+    id:"A2.1",badge:"A2.1",title:"В городе",sub:"Elemental I",
+    desc:"Comida, ciudad y vida cotidiana",color:"#C69B00",
+    vocab:[
+      {ru:"хлеб",p:"khleb",es:"pan"},
+      {ru:"вода",p:"voda",es:"agua"},
+      {ru:"мясо",p:"myaso",es:"carne"},
+      {ru:"магазин",p:"magazin",es:"tienda"},
+      {ru:"ресторан",p:"restoran",es:"restaurante"},
+      {ru:"метро",p:"metro",es:"metro"},
+      {ru:"улица",p:"ulitsa",es:"calle"},
+      {ru:"сейчас",p:"seychas",es:"ahora"},
+      {ru:"завтра",p:"zavtra",es:"mañana"},
+      {ru:"вчера",p:"vchera",es:"ayer"},
+    ],
+    grammar:{
+      title:"Casos: Nominativo y Acusativo",
+      intro:"El ruso tiene 6 casos. El Nominativo es el sujeto (¿quién?). El Acusativo es el objeto directo (¿qué?). Las terminaciones cambian según el caso.",
+      headers:["Caso","Pregunta","Ejemplo"],
+      rows:[
+        ["Nominativo","¿Quién / Qué?","Это хлеб. (Esto es pan)"],
+        ["Acusativo M","¿Qué?","Я ем хлеб. (Como pan)"],
+        ["Acusativo F","¿Qué? → -у/-ю","Я пью воду. (Bebo agua)"],
+        ["Acusativo N","= Nominativo","Я ем мясо. (Como carne)"],
+      ],
+    },
+    phrases:[
+      {ru:"Где метро?",p:"Gde metro?",es:"¿Dónde está el metro?"},
+      {ru:"Я хочу есть",p:"Ya khochu yest",es:"Quiero comer"},
+      {ru:"Дайте, пожалуйста, хлеб",p:"Dayte, pozhaluysta, khleb",es:"Deme pan, por favor"},
+      {ru:"Счёт, пожалуйста",p:"Schot, pozhaluysta",es:"La cuenta, por favor"},
+      {ru:"Это далеко?",p:"Eto daleko?",es:"¿Está lejos?"},
+    ],
+    examW:[
+      {q:'¿Cómo se dice "pan"?',opts:["вода","хлеб","молоко","мясо"],a:1},
+      {q:'"Где метро?" significa:',opts:["¿Cuánto cuesta?","¿Dónde está el metro?","¿Cómo llego?","¿Hay taxi?"],a:1},
+      {q:'¿Cómo se dice "mañana"?',opts:["вчера","сейчас","завтра","сегодня"],a:2},
+      {q:'¿Qué significa "магазин"?',opts:["restaurante","calle","tienda","metro"],a:2},
+      {q:'"Я хочу есть" significa:',opts:["Quiero beber","Quiero comer","Quiero dormir","Quiero ir"],a:1},
+    ],
+    examS:[{ru:"Где метро?",es:"¿Dónde está el metro?"},{ru:"Я хочу есть",es:"Quiero comer"},{ru:"Спасибо большое",es:"Muchas gracias"}],
+    examC:[
+      {q:"Plaza más famosa de Moscú:",opts:["Plaza de Europa","Plaza Roja","Plaza de la Revolución","Plaza Pushkin"],a:1},
+      {q:"Sopa rusa hecha con remolacha:",opts:["Solyanka","Shchi","Borsch","Ukha"],a:2},
+      {q:"¿Qué es la Матрёшка?",opts:["Muñeca de madera anidada","Sombrero tradicional","Instrumento musical","Danza folklórica"],a:0},
+    ],
+  },
+  {
+    id:"A2.2",badge:"A2.2",title:"Мой день",sub:"Elemental II",
+    desc:"Verbos de movimiento, clima y tiempo libre",color:"#2A7A3A",
+    vocab:[
+      {ru:"идти",p:"idti",es:"ir (a pie, una vez)"},
+      {ru:"ехать",p:"yekhat",es:"ir (en vehículo, una vez)"},
+      {ru:"погода",p:"pogoda",es:"el tiempo / clima"},
+      {ru:"снег",p:"sneg",es:"nieve"},
+      {ru:"дождь",p:"dozhd",es:"lluvia"},
+      {ru:"читать",p:"chitat",es:"leer"},
+      {ru:"смотреть",p:"smotret",es:"mirar / ver"},
+      {ru:"слушать",p:"slushat",es:"escuchar"},
+      {ru:"кино",p:"kino",es:"cine"},
+      {ru:"отдыхать",p:"otdykhat",es:"descansar"},
+    ],
+    grammar:{
+      title:"Verbos de Movimiento: идти vs ехать",
+      intro:"El ruso distingue entre moverse a pie o en vehículo, y entre acciones únicas o habituales. Esta distinción es esencial.",
+      headers:["Verbo","Tipo","Ejemplo"],
+      rows:[
+        ["идти","a pie (una vez)","Я иду в школу. (Voy a la escuela)"],
+        ["ехать","en vehículo (una vez)","Я еду в Москву. (Voy a Moscú)"],
+        ["ходить","a pie (habitual)","Я хожу в школу каждый день."],
+        ["ездить","en vehículo (habitual)","Я езжу на работу."],
+      ],
+    },
+    phrases:[
+      {ru:"Какая сегодня погода?",p:"Kakaya segodnya pogoda?",es:"¿Cómo está el tiempo hoy?"},
+      {ru:"Сегодня холодно и идёт снег",p:"Segodnya kholodno i idyot sneg",es:"Hoy hace frío y nieva"},
+      {ru:"Я иду в кино",p:"Ya idu v kino",es:"Voy al cine (a pie)"},
+      {ru:"Что ты делаешь вечером?",p:"Chto ty delayesh vecherom?",es:"¿Qué hacés esta noche?"},
+      {ru:"Я люблю читать книги",p:"Ya lyublyu chitat knigi",es:"Me gusta leer libros"},
+    ],
+    examW:[
+      {q:'¿Cómo se dice "nieve"?',opts:["дождь","ветер","снег","солнце"],a:2},
+      {q:'"Какая погода?" significa:',opts:["¿Qué hora es?","¿Cómo está el tiempo?","¿Dónde estás?","¿Tienes frío?"],a:1},
+      {q:'"Ir a pie, una vez" en ruso:',opts:["ехать","ходить","идти","ездить"],a:2},
+      {q:'¿Qué significa "читать"?',opts:["escuchar","hablar","leer","escribir"],a:2},
+      {q:'"Сегодня холодно" significa:',opts:["Hace sol","Hace frío","Llueve","Hace calor"],a:1},
+    ],
+    examS:[{ru:"Какая погода?",es:"¿Cómo está el tiempo?"},{ru:"Сегодня холодно",es:"Hoy hace frío"},{ru:"Я иду в кино",es:"Voy al cine"}],
+    examC:[
+      {q:"Estación más fría en Rusia:",opts:["Otoño","Primavera","Invierno","Verano"],a:2},
+      {q:"Ballet de Tchaikovsky sobre un lago encantado:",opts:["La Bella Durmiente","El Lago de los Cisnes","La Cenicienta","El Cascanueces"],a:1},
+      {q:"Río más largo de Europa, en Rusia:",opts:["Río Don","Río Ob","Río Volga","Río Ural"],a:2},
+    ],
+  },
+  {
+    id:"B1.1",badge:"B1.1",title:"Общение",sub:"Intermedio I",
+    desc:"Opiniones, tiempo pasado y planes futuros",color:"#1A3A8A",
+    vocab:[
+      {ru:"думать",p:"dumat",es:"pensar"},
+      {ru:"понимать",p:"ponimat",es:"entender"},
+      {ru:"говорить",p:"govorit",es:"hablar"},
+      {ru:"знать",p:"znat",es:"saber / conocer"},
+      {ru:"помнить",p:"pomnit",es:"recordar"},
+      {ru:"чувствовать",p:"chuvstvovat",es:"sentir"},
+      {ru:"мнение",p:"mnenie",es:"opinión"},
+      {ru:"опыт",p:"opyt",es:"experiencia"},
+      {ru:"путешествие",p:"puteshestvie",es:"viaje"},
+      {ru:"будущее",p:"budushcheye",es:"futuro"},
+    ],
+    grammar:{
+      title:"Tiempo Pasado — Прошедшее время",
+      intro:"El pasado ruso se forma añadiendo sufijos al infinitivo según el género/número del sujeto. ¡Solo 4 formas para memorizar!",
+      headers:["Sujeto","Sufijo","Ejemplo: читать (leer)"],
+      rows:[
+        ["Yo / Él (m)","−л","читал (leía)"],
+        ["Ella (f)","−ла","читала (leía)"],
+        ["Nosotros/as","−ли","читали (leíamos)"],
+        ["Ellos/as","−ли","читали (leían)"],
+        ["Ejemplo m.","Он читал книгу.","(Él leía un libro)"],
+        ["Ejemplo f.","Она говорила по-русски.","(Ella hablaba en ruso)"],
+      ],
+    },
+    phrases:[
+      {ru:"По моему мнению...",p:"Po moyemu mneniyu...",es:"En mi opinión..."},
+      {ru:"Я думаю, что...",p:"Ya dumayu, chto...",es:"Creo que..."},
+      {ru:"Расскажи мне о себе",p:"Rasskazhi mne o sebe",es:"Cuéntame sobre vos"},
+      {ru:"Когда ты был в Москве?",p:"Kogda ty byl v Moskve?",es:"¿Cuándo estuviste en Moscú?"},
+      {ru:"В будущем я хочу...",p:"V budushchem ya khochu...",es:"En el futuro quiero..."},
+    ],
+    examW:[
+      {q:'¿Cómo se dice "entender"?',opts:["думать","говорить","понимать","знать"],a:2},
+      {q:'"По моему мнению" significa:',opts:["A mi manera","En mi opinión","Según yo pienso","Solo para mí"],a:1},
+      {q:'¿Qué significa "путешествие"?',opts:["trabajo","estudio","viaje","aventura"],a:2},
+      {q:'Pasado femenino de "читать":',opts:["читал","читало","читала","читали"],a:2},
+      {q:'"Я думаю, что..." significa:',opts:["Sé que...","Creo que...","Quiero que...","Espero que..."],a:1},
+    ],
+    examS:[{ru:"По моему мнению",es:"En mi opinión"},{ru:"Я думаю что это интересно",es:"Creo que es interesante"},{ru:"Расскажи мне о себе",es:"Cuéntame sobre vos"}],
+    examC:[
+      {q:"¿Quién fue el primer cosmonauta en el espacio?",opts:["Vladimir Putin","Yuri Gagarin","Alexei Leonov","Valentina Tereshkova"],a:1},
+      {q:"¿Quién escribió 'Crimen y Castigo'?",opts:["Tolstói","Chéjov","Dostoievski","Pushkin"],a:2},
+      {q:"¿Qué es la 'тройка' (troika)?",opts:["Tres generales","Trineo tirado por 3 caballos","Tres campanas","Trío musical"],a:1},
+    ],
+  },
+];
+
+// ═══════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════
+function levenshtein(a, b) {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  let curr = new Array(b.length + 1);
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++)
+      curr[j] = a[i-1] === b[j-1] ? prev[j-1] : 1 + Math.min(prev[j], curr[j-1], prev[j-1]);
+    [prev, curr] = [curr, prev];
+  }
+  return prev[b.length];
+}
+
+function textSimilarity(a, b) {
+  const norm = s => s.toLowerCase().replace(/ё/g,"е").replace(/[.,!?;:«»""''—–-]/g,"").replace(/\s+/g," ").trim();
+  a = norm(a); b = norm(b);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  return Math.max(0, 1 - levenshtein(a, b) / Math.max(a.length, b.length));
+}
+
+const speakRu = (text) => { const u = new SpeechSynthesisUtterance(text); u.lang = "ru-RU"; speechSynthesis.speak(u); };
+
+// ═══════════════════════════════════════════════════════
+//  COMPONENTES — nivel de módulo
+// ═══════════════════════════════════════════════════════
+function BgDecor() {
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:0, overflow:"hidden", pointerEvents:"none" }}>
+      <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse 60% 50% at 15% 15%, rgba(232,25,44,.12) 0%, transparent 100%), radial-gradient(ellipse 50% 60% at 85% 85%, rgba(26,58,138,.17) 0%, transparent 100%), #07090f" }} />
+      {"ДРЯСНА".split("").map((l, i) => (
+        <div key={i} style={{ position:"absolute", fontSize:`${155+i*32}px`, fontFamily:"'Bebas Neue',sans-serif", color:"#E8192C", opacity:.05,
+          top:`${[8,35,60,5,50,78][i]}%`, left:`${[5,70,20,85,45,60][i]}%`,
+          animation:`floatLetter ${7+i}s ease-in-out infinite`, animationDelay:`${i*.9}s`, userSelect:"none", lineHeight:1 }}>{l}</div>
+      ))}
+      <svg style={{ position:"absolute", top:0, right:0, width:"28%", height:"100%", opacity:.05 }} viewBox="0 0 200 800" preserveAspectRatio="none">
+        {[0,30,60,90,120].map(x => <line key={x} x1={x} y1="0" x2={x+80} y2="800" stroke="#E8192C" strokeWidth="1.5" />)}
+      </svg>
+    </div>
+  );
+}
+
+function TopNav({ levels, unlocked, completed, openLesson, chatOpen, setChatOpen }) {
+  return (
+    <header style={{ position:"relative", zIndex:20, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 28px", borderBottom:"1px solid rgba(232,25,44,.18)", background:"rgba(7,9,15,.88)", backdropFilter:"blur(16px)" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+        <div style={{ width:38, height:38, background:"#E8192C", display:"flex", alignItems:"center", justifyContent:"center", borderRadius:4, fontFamily:"'Bebas Neue',sans-serif", fontSize:22, color:"white" }}>Р</div>
+        <div>
+          <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:22, letterSpacing:3, color:"#f0ece0", lineHeight:1 }}>РУССКИЙ</div>
+          <div style={{ fontSize:9, color:"#D4AF37", letterSpacing:4, fontFamily:"'Noto Sans',sans-serif", textTransform:"uppercase" }}>aprende ruso</div>
+        </div>
+      </div>
+      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+        {levels.map((lv, i) => {
+          const done = completed.has(lv.id), open = unlocked.has(lv.id);
+          return (
+            <div key={lv.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
+              <div onClick={() => openLesson(lv)} title={lv.sub} style={{ width:30, height:30, borderRadius:"50%", cursor:open?"pointer":"default",
+                background:done?"#2ecc71":open?lv.color:"rgba(255,255,255,.08)",
+                border:`2px solid ${done?"#2ecc71":open?lv.color:"rgba(255,255,255,.15)"}`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:9, fontFamily:"'Noto Sans',sans-serif", fontWeight:700,
+                color:open||done?"white":"rgba(255,255,255,.25)" }}>
+                {done ? "✓" : lv.badge}
+              </div>
+              {i < levels.length-1 && <div style={{ width:13, height:1, background:done?"#2ecc71":"rgba(255,255,255,.12)" }} />}
+            </div>
+          );
+        })}
+      </div>
+      <button onClick={() => setChatOpen(o => !o)} style={{ background:chatOpen?"#E8192C":"rgba(232,25,44,.12)", border:"1px solid rgba(232,25,44,.45)", color:"#f0ece0", padding:"9px 18px", borderRadius:7, fontFamily:"'Noto Sans',sans-serif", fontSize:13, display:"flex", alignItems:"center", gap:7, cursor:"pointer", transition:"all .2s" }}>
+        <span style={{ fontSize:16 }}>💬</span> Asistente
+      </button>
+    </header>
+  );
+}
+function HomeView({ levels, unlocked, completed, openLesson }) {
+  const DAILY_TIPS = [
+    "💡 Sabías que el ruso tiene 6 casos gramaticales? El Nominativo y Acusativo son los más frecuentes.",
+    "🎯 Tip: aprendé 5 palabras rusas nuevas por día. En 6 meses tenés vocabulario básico sólido.",
+    "🎤 La letra Р rusa vibra siempre, incluso al inicio de palabra. Practicá: рыба, работа, Россия.",
+    "🏛️ La catedral de San Basilio en la Plaza Roja fue construida por Iván el Terrible en 1555.",
+    "📚 El ruso NO tiene artículos (el/la/un/una). ¡Una cosa menos para aprender!",
+    "🌊 El Lago Baikal contiene el 20% del agua dulce no congelada del planeta.",
+    "🎵 La palabra 'спутник' significa 'compañero de viaje'. Por eso se llamó Sputnik al primer satélite.",
+    "✍️ En ruso el orden de las palabras es libre. Los casos gramaticales indican la función de cada palabra.",
+  ];
+  const [tip] = useState(() => DAILY_TIPS[Math.floor(Math.random() * DAILY_TIPS.length)]);
+
+  return (
+    <div style={{ position:"relative", zIndex:1, maxWidth:1100, margin:"0 auto", padding:"52px 28px 80px" }}>
+      <div style={{ textAlign:"center", marginBottom:60, animation:"fadeUp .6s ease" }}>
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:"clamp(52px,9vw,108px)", letterSpacing:4, lineHeight:.88, color:"#f0ece0" }}>ДОБРО</div>
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:"clamp(52px,9vw,108px)", letterSpacing:4, lineHeight:.88, color:"#E8192C" }}>ПОЖАЛОВАТЬ</div>
+        <div style={{ fontFamily:"'Crimson Pro',serif", fontSize:18, color:"rgba(240,236,224,.55)", marginTop:18, letterSpacing:1.5 }}>Bienvenido · De cero a nivel intermedio</div>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, marginTop:22 }}>
+          <div style={{ height:1, width:60, background:"rgba(212,175,55,.35)" }} /><span>⭐</span>
+          <div style={{ height:1, width:60, background:"rgba(212,175,55,.35)" }} />
+        </div>
+      </div>
+
+      {/* Tip del día */}
+      <div style={{ background:"rgba(212,175,55,.07)", border:"1px solid rgba(212,175,55,.25)", borderRadius:10, padding:"14px 18px", marginBottom:32, fontFamily:"'Crimson Pro',serif", fontSize:15, color:"rgba(240,236,224,.8)", lineHeight:1.6 }}>
+        <span style={{ color:"#D4AF37", fontWeight:700, marginRight:8, fontFamily:"'Noto Sans',sans-serif", fontSize:11, letterSpacing:1, textTransform:"uppercase" }}>Sabías que —</span>{tip}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(192px,1fr))", gap:18 }}>
+        {levels.map((lv, i) => {
+          const isLocked = !unlocked.has(lv.id), isDone = completed.has(lv.id);
+          return (
+            <div key={lv.id} onClick={() => openLesson(lv)} style={{ background:"rgba(12,18,30,.92)", borderRadius:14, padding:24, cursor:isLocked?"not-allowed":"pointer",
+              border:`1px solid ${isDone?"#2ecc7140":isLocked?"rgba(255,255,255,.06)":lv.color+"45"}`,
+              position:"relative", overflow:"hidden", opacity:isLocked?.5:1,
+              animation:`fadeUp .5s ease ${i*.1}s both`, transition:"transform .25s,box-shadow .25s",
+              boxShadow:isDone?"0 4px 24px rgba(46,204,113,.12)":isLocked?"none":`0 4px 24px ${lv.color}18` }}
+              onMouseEnter={e => { if (!isLocked) e.currentTarget.style.transform="translateY(-6px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform=""; }}>
+              <div style={{ position:"absolute", top:0, left:0, right:0, height:3, background:isDone?"#2ecc71":isLocked?"rgba(255,255,255,.07)":lv.color }} />
+              <div style={{ position:"absolute", top:14, right:14, fontSize:16 }}>
+                {isDone ? <span style={{ background:"#2ecc71", borderRadius:"50%", width:22, height:22, display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:12 }}>✓</span> : isLocked ? "🔒" : null}
+              </div>
+              <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:40, lineHeight:1, marginBottom:3, color:isDone?"#2ecc71":isLocked?"rgba(255,255,255,.15)":lv.color }}>{lv.badge}</div>
+              <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:17, letterSpacing:1, marginBottom:3, color:isLocked?"rgba(255,255,255,.25)":"#f0ece0" }}>{lv.title}</div>
+              <div style={{ fontSize:10, letterSpacing:1, textTransform:"uppercase", marginBottom:10, color:isLocked?"rgba(255,255,255,.18)":"#D4AF37", fontFamily:"'Noto Sans',sans-serif" }}>{lv.sub}</div>
+              <div style={{ fontSize:12, lineHeight:1.5, color:isLocked?"rgba(255,255,255,.18)":"rgba(240,236,224,.55)", fontFamily:"'Crimson Pro',serif" }}>{lv.desc}</div>
+              {!isLocked && (
+                <div style={{ marginTop:14, display:"flex", gap:5 }}>
+                  <div style={{ padding:"3px 9px", background:`${lv.color}18`, border:`1px solid ${lv.color}35`, borderRadius:12, fontSize:10, color:lv.color, fontFamily:"'Noto Sans',sans-serif" }}>{lv.vocab.length} palabras</div>
+                  <div style={{ padding:"3px 9px", background:"rgba(212,175,55,.08)", border:"1px solid rgba(212,175,55,.28)", borderRadius:12, fontSize:10, color:"#D4AF37", fontFamily:"'Noto Sans',sans-serif" }}>+ examen</div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(195px,1fr))", gap:14, marginTop:48 }}>
+        {[
+          { icon:"📖", t:"Vocabulario completo", d:"10 palabras clave con pronunciación y audio" },
+          { icon:"🎤", t:"Evaluación de voz", d:"Reconocimiento + feedback fonético detallado" },
+          { icon:"🏛️", t:"Cultura rusa", d:"Historia, tradiciones y curiosidades" },
+          { icon:"💾", t:"Progreso guardado", d:"Tu avance persiste entre sesiones" },
+        ].map((f, i) => (
+          <div key={i} style={{ background:"rgba(255,255,255,.025)", border:"1px solid rgba(255,255,255,.06)", borderRadius:10, padding:18, animation:`fadeUp .6s ease ${.35+i*.08}s both` }}>
+            <div style={{ fontSize:26, marginBottom:8 }}>{f.icon}</div>
+            <div style={{ fontFamily:"'Noto Sans',sans-serif", fontWeight:700, fontSize:13, color:"#f0ece0", marginBottom:4 }}>{f.t}</div>
+            <div style={{ fontSize:12, color:"rgba(240,236,224,.45)", fontFamily:"'Crimson Pro',serif", lineHeight:1.5 }}>{f.d}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LessonView({ level, lessonTab, setLessonTab, onBack, onStartExam }) {
+  if (!level) return null;
+  const lv = level;
+  return (
+    <div style={{ position:"relative", zIndex:1, maxWidth:900, margin:"0 auto", padding:"32px 28px 80px", animation:"fadeUp .4s ease" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:30 }}>
+        <button onClick={onBack} style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.12)", color:"#f0ece0", padding:"8px 14px", borderRadius:7, fontFamily:"'Noto Sans',sans-serif", fontSize:13, cursor:"pointer" }}>← Volver</button>
+        <div>
+          <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:30, color:lv.color, letterSpacing:2, lineHeight:1 }}>{lv.badge} — {lv.title}</div>
+          <div style={{ fontSize:12, color:"rgba(240,236,224,.45)", fontFamily:"'Noto Sans',sans-serif" }}>{lv.sub} · {lv.desc}</div>
+        </div>
+      </div>
+      <div style={{ display:"flex", gap:3, marginBottom:26, background:"rgba(255,255,255,.04)", borderRadius:9, padding:4 }}>
+        {["vocab","grammar","phrases"].map(tab => (
+          <button key={tab} onClick={() => setLessonTab(tab)} style={{ flex:1, padding:"10px 14px", borderRadius:6, border:"none",
+            background:lessonTab===tab?lv.color:"transparent", color:lessonTab===tab?"white":"rgba(240,236,224,.55)",
+            fontFamily:"'Noto Sans',sans-serif", fontSize:13, fontWeight:600, cursor:"pointer", transition:"all .2s" }}>
+            {tab==="vocab"?"📖 Vocabulario":tab==="grammar"?"📐 Gramática":"💬 Frases"}
+          </button>
+        ))}
+      </div>
+      {lessonTab==="vocab" && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(183px,1fr))", gap:12 }}>
+          {lv.vocab.map((w, i) => (
+            <div key={i} onClick={() => speakRu(w.ru)} title="Clic para escuchar" style={{ background:"rgba(12,18,30,.95)", border:`1px solid ${lv.color}28`, borderRadius:11, padding:18, textAlign:"center", cursor:"pointer", transition:"transform .2s,box-shadow .2s" }}
+              onMouseEnter={e => { e.currentTarget.style.transform="translateY(-3px)"; e.currentTarget.style.boxShadow=`0 8px 24px ${lv.color}22`; }}
+              onMouseLeave={e => { e.currentTarget.style.transform=""; e.currentTarget.style.boxShadow=""; }}>
+              <div style={{ fontFamily:"'Crimson Pro',serif", fontSize:30, color:"#f0ece0", marginBottom:3, lineHeight:1 }}>{w.ru}</div>
+              <div style={{ fontSize:11, color:lv.color, fontFamily:"'Noto Sans',sans-serif", marginBottom:7, letterSpacing:.5 }}>[{w.p}]</div>
+              <div style={{ fontSize:13, color:"rgba(240,236,224,.65)", fontFamily:"'Crimson Pro',serif" }}>{w.es}</div>
+              <div style={{ fontSize:10, color:"rgba(255,255,255,.18)", marginTop:8 }}>🔊 escuchar</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {lessonTab==="grammar" && (
+        <div style={{ background:"rgba(12,18,30,.95)", border:`1px solid ${lv.color}28`, borderRadius:13, padding:28 }}>
+          <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:24, color:lv.color, letterSpacing:2, marginBottom:10 }}>{lv.grammar.title}</div>
+          <div style={{ fontSize:15, color:"rgba(240,236,224,.7)", fontFamily:"'Crimson Pro',serif", lineHeight:1.75, marginBottom:24 }}>{lv.grammar.intro}</div>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead><tr>{lv.grammar.headers.map((h, i) => (
+                <th key={i} style={{ padding:"10px 14px", background:`${lv.color}18`, border:`1px solid ${lv.color}28`, fontSize:10, color:lv.color, fontFamily:"'Noto Sans',sans-serif", textAlign:"left", letterSpacing:1, textTransform:"uppercase" }}>{h}</th>
+              ))}</tr></thead>
+              <tbody>{lv.grammar.rows.map((row, ri) => (
+                <tr key={ri} style={{ background:ri%2===0?"rgba(255,255,255,.018)":"transparent" }}>
+                  {row.map((cell, ci) => (
+                    <td key={ci} style={{ padding:"9px 14px", border:"1px solid rgba(255,255,255,.055)", fontSize:ci===0?16:13, lineHeight:1.4, color:ci===0?"#f0ece0":"rgba(240,236,224,.68)", fontFamily:ci===0?"'Crimson Pro',serif":"'Noto Sans',sans-serif" }}>{cell}</td>
+                  ))}
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {lessonTab==="phrases" && (
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          {lv.phrases.map((ph, i) => (
+            <div key={i} style={{ background:"rgba(12,18,30,.95)", border:`1px solid ${lv.color}25`, borderRadius:11, padding:20, display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
+              <div>
+                <div style={{ fontFamily:"'Crimson Pro',serif", fontSize:24, color:"#f0ece0", marginBottom:3 }}>{ph.ru}</div>
+                <div style={{ fontSize:11, color:lv.color, fontFamily:"'Noto Sans',sans-serif", marginBottom:5, letterSpacing:.5 }}>[{ph.p}]</div>
+                <div style={{ fontSize:13, color:"rgba(240,236,224,.58)", fontFamily:"'Crimson Pro',serif" }}>{ph.es}</div>
+              </div>
+              <button onClick={() => speakRu(ph.ru)} style={{ background:`${lv.color}1a`, border:`1px solid ${lv.color}40`, color:lv.color, padding:"10px 14px", borderRadius:7, fontSize:20, flexShrink:0, cursor:"pointer" }}>🔊</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ marginTop:40, textAlign:"center", padding:"28px 0", borderTop:"1px solid rgba(255,255,255,.06)" }}>
+        <div style={{ fontSize:13, color:"rgba(240,236,224,.38)", fontFamily:"'Noto Sans',sans-serif", marginBottom:14 }}>¿Repasaste todo el material?</div>
+        <button onClick={onStartExam} style={{ background:`linear-gradient(135deg,${lv.color},${lv.color}bb)`, color:"white", padding:"14px 42px", borderRadius:9, border:"none", fontFamily:"'Bebas Neue',sans-serif", fontSize:22, letterSpacing:2.5, cursor:"pointer", boxShadow:`0 4px 24px ${lv.color}40`, transition:"transform .2s" }}
+          onMouseEnter={e => e.currentTarget.style.transform="translateY(-2px)"}
+          onMouseLeave={e => e.currentTarget.style.transform=""}>
+          🎓 RENDIR EXAMEN {lv.badge}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ExamOpt({ selected, onClick, children }) {
+  return (
+    <div onClick={onClick} style={{ padding:"10px 14px", borderRadius:8, cursor:"pointer", userSelect:"none", transition:"all .2s", fontFamily:"'Crimson Pro',serif", fontSize:15, color:"#f0ece0", border:`2px solid ${selected?"#D4AF37":"rgba(255,255,255,.1)"}`, background:selected?"rgba(212,175,55,.12)":"transparent" }}>
+      {children}
+    </div>
+  );
+}
+
+function ExamView({ level, examStep, setExamStep, writingAnswers, setWritingAnswers, speakingResults, setSpeakingResults, cultureAnswers, setCultureAnswers, speakingFeedback, setSpeakingFeedback, isRecording, setIsRecording, speakingLoading, setSpeakingLoading, onBack, onComplete }) {
+  if (!level) return null;
+  const lv = level;
+  const steps = ["✍️ Escritura","🎤 Pronunciación","🏛️ Cultura","📊 Resultados"];
+
+  const calcScore = () => {
+    let c = 0, t = 0;
+    lv.examW.forEach((q, i) => { t++; if (writingAnswers[i] === q.a) c++; });
+    lv.examS.forEach((_, i) => { t++; if (speakingResults[i]?.score >= .5) c++; });
+    lv.examC.forEach((q, i) => { t++; if (cultureAnswers[i] === q.a) c++; });
+    const pct = t > 0 ? Math.round(c/t*100) : 0;
+    return { correct:c, total:t, pct, pass:pct >= 70,
+      wC: lv.examW.filter((_, i) => writingAnswers[i] === lv.examW[i].a).length,
+      sC: speakingResults.filter(r => r?.score >= .5).length,
+      cC: lv.examC.filter((_, i) => cultureAnswers[i] === lv.examC[i].a).length,
+    };
+  };
+
+  const handleSpeak = async (phrase, idx) => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      setSpeakingFeedback(p => ({ ...p, [idx]:{ text:"❌ Usá Google Chrome para el reconocimiento de voz.", err:true } }));
+      return;
+    }
+    setIsRecording(true); setSpeakingLoading(true);
+    setSpeakingFeedback(p => ({ ...p, [idx]:{ text:"🎤 Escuchando… hablá ahora.", loading:true } }));
+    const rec = new SR(); rec.lang="ru-RU"; rec.continuous=false; rec.interimResults=false;
+    rec.onresult = async (e) => {
+      const transcript = e.results[0][0].transcript;
+      setIsRecording(false);
+      const score = textSimilarity(transcript, phrase.ru);
+      setSpeakingResults(prev => { const u=[...prev]; u[idx]={ru:phrase.ru,transcript,score}; return u; });
+      setSpeakingFeedback(p => ({ ...p, [idx]:{ text:`⏳ Analizando: "${transcript}"…`, loading:true } }));
+      // Feedback local — sin API
+      await new Promise(r => setTimeout(r, 600));
+      const fb = getPronunciationFeedback(score, phrase.ru);
+      setSpeakingFeedback(p => ({ ...p, [idx]:{ text:fb, score, transcript, done:true } }));
+      setSpeakingLoading(false);
+    };
+    rec.onerror = (e) => {
+      setIsRecording(false); setSpeakingLoading(false);
+      setSpeakingFeedback(p => ({ ...p, [idx]:{ text:`❌ Error: ${e.error}. Comprobá los permisos del micrófono.`, err:true } }));
+    };
+    rec.start();
+  };
+
+  return (
+    <div style={{ position:"relative", zIndex:1, maxWidth:800, margin:"0 auto", padding:"32px 28px 80px", animation:"fadeUp .4s ease" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:28 }}>
+        <button onClick={onBack} style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.12)", color:"#f0ece0", padding:"8px 13px", borderRadius:7, fontFamily:"'Noto Sans',sans-serif", fontSize:13, cursor:"pointer" }}>← Lección</button>
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:24, color:lv.color, letterSpacing:2 }}>EXAMEN · {lv.badge}</div>
+      </div>
+      {/* Step bar */}
+      <div style={{ display:"flex", alignItems:"center", marginBottom:30 }}>
+        {steps.map((label, i) => (
+          <div key={i} style={{ display:"flex", alignItems:"center", flex:i<steps.length-1?1:"none" }}>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
+              <div style={{ width:36, height:36, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center",
+                background:i<examStep?"#2ecc71":i===examStep?lv.color:"rgba(255,255,255,.1)",
+                border:`2px solid ${i<examStep?"#2ecc71":i===examStep?lv.color:"rgba(255,255,255,.18)"}`,
+                fontSize:i<examStep?14:12, color:"white", fontWeight:700, fontFamily:"'Noto Sans',sans-serif", transition:"all .3s" }}>
+                {i < examStep ? "✓" : i+1}
+              </div>
+              <div style={{ fontSize:9, color:i===examStep?lv.color:"rgba(255,255,255,.28)", fontFamily:"'Noto Sans',sans-serif", whiteSpace:"nowrap" }}>{label}</div>
+            </div>
+            {i < steps.length-1 && <div style={{ flex:1, height:2, background:i<examStep?"#2ecc71":"rgba(255,255,255,.1)", margin:"0 6px", marginBottom:22, transition:"background .3s" }} />}
+          </div>
+        ))}
+      </div>
+
+      {/* ESCRITURA */}
+      {examStep===0 && (
+        <div style={{ animation:"fadeUp .4s ease" }}>
+          <div style={{ marginBottom:24 }}>
+            <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:20, color:"#f0ece0", letterSpacing:1 }}>✍️ Escritura</div>
+            <div style={{ fontSize:12, color:"rgba(240,236,224,.42)", fontFamily:"'Noto Sans',sans-serif", marginTop:3 }}>Seleccioná la respuesta correcta. Necesitás 70% total para aprobar.</div>
+          </div>
+          {lv.examW.map((q, qi) => (
+            <div key={qi} style={{ background:"rgba(12,18,30,.95)", border:"1px solid rgba(255,255,255,.07)", borderRadius:12, padding:22, marginBottom:14 }}>
+              <div style={{ fontFamily:"'Crimson Pro',serif", fontSize:17, color:"#f0ece0", marginBottom:14 }}>
+                <span style={{ color:lv.color, fontWeight:700, marginRight:6 }}>{qi+1}.</span>{q.q}
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                {q.opts.map((opt, oi) => (
+                  <ExamOpt key={oi} selected={writingAnswers[qi]===oi} onClick={() => setWritingAnswers(p => ({ ...p, [qi]:oi }))}>
+                    <span style={{ color:lv.color, fontSize:11, marginRight:7, fontFamily:"'Noto Sans',sans-serif" }}>{String.fromCharCode(65+oi)}.</span>{opt}
+                  </ExamOpt>
+                ))}
+              </div>
+            </div>
+          ))}
+          <button onClick={() => { if (Object.keys(writingAnswers).length < lv.examW.length) { alert("¡Respondé todas las preguntas!"); return; } setExamStep(1); }}
+            style={{ width:"100%", background:lv.color, color:"white", padding:"14px", borderRadius:9, border:"none", fontFamily:"'Bebas Neue',sans-serif", fontSize:19, letterSpacing:2, cursor:"pointer", marginTop:6 }}>
+            CONTINUAR → PRONUNCIACIÓN
+          </button>
+        </div>
+      )}
+
+      
+      {/* PRONUNCIACIÓN */}
+      {examStep===1 && (
+        <div style={{ animation:"fadeUp .4s ease" }}>
+          <div style={{ marginBottom:24 }}>
+            <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:20, color:"#f0ece0", letterSpacing:1 }}>🎤 Pronunciación</div>
+            <div style={{ fontSize:12, color:"rgba(240,236,224,.42)", fontFamily:"'Noto Sans',sans-serif", marginTop:3 }}>
+              Escuchá el ejemplo (🔊) y hablá (🎤). El sistema evalúa tu pronunciación y da feedback. Requiere Chrome y micrófono.
+            </div>
+          </div>
+          {lv.examS.map((ph, i) => {
+            const result = speakingResults[i], fb = speakingFeedback[i];
+            const sc = result?.score ?? 0;
+            const scoreColor = result ? (sc>=.7?"#2ecc71":sc>=.4?"#D4AF37":"#e74c3c") : lv.color;
+            return (
+              <div key={i} style={{ background:"rgba(12,18,30,.95)", border:`1px solid ${result?(sc>=.5?"#2ecc7135":"#E8192C35"):lv.color+"25"}`, borderRadius:12, padding:22, marginBottom:14 }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16, marginBottom:result||fb?12:0 }}>
+                  <div>
+                    <div style={{ fontFamily:"'Crimson Pro',serif", fontSize:26, color:"#f0ece0", marginBottom:2 }}>{ph.ru}</div>
+                    <div style={{ fontSize:12, color:"rgba(240,236,224,.42)", fontFamily:"'Noto Sans',sans-serif" }}>{ph.es}</div>
+                  </div>
+                  <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+                    <button onClick={() => speakRu(ph.ru)} style={{ background:"rgba(255,255,255,.07)", border:"1px solid rgba(255,255,255,.14)", color:"#f0ece0", padding:"8px 12px", borderRadius:7, fontSize:18, cursor:"pointer" }}>🔊</button>
+                    <button disabled={speakingLoading} onClick={() => handleSpeak(ph, i)} style={{ background:result?(sc>=.5?"#2ecc71":"#e74c3c"):lv.color, color:"white", padding:"8px 16px", borderRadius:7, border:"none", fontFamily:"'Noto Sans',sans-serif", fontSize:13, fontWeight:600, cursor:speakingLoading?"not-allowed":"pointer", opacity:speakingLoading&&!fb?.loading?0.5:1, animation:fb?.loading?"recordPulse 1s infinite":"none" }}>
+{fb?.loading ? "⏺ Grabando…" : result ? "🔄 Reintentar" : "🎤 Hablar"}
+                    </button>
+                  </div>
+                </div>
+                {result && (
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:fb?.text&&!fb.loading?10:0 }}>
+                    <div style={{ flex:1, height:5, background:"rgba(255,255,255,.08)", borderRadius:3, overflow:"hidden" }}>
+                      <div style={{ width:`${Math.round(sc*100)}%`, height:"100%", background:scoreColor, borderRadius:3, transition:"width .6s" }} />
+                    </div>
+                    <div style={{ fontSize:13, fontWeight:700, color:scoreColor, fontFamily:"'Noto Sans',sans-serif", whiteSpace:"nowrap" }}>{Math.round(sc*100)}%</div>
+                  </div>
+                )}
+                {fb?.text && !fb.loading && <div style={{ background:"rgba(255,255,255,.04)", borderRadius:8, padding:"10px 14px", fontSize:12, color:"rgba(240,236,224,.72)", fontFamily:"'Noto Sans',sans-serif", lineHeight:1.6 }}>{fb.text}</div>}
+                {fb?.loading && <div style={{ fontSize:12, color:"rgba(240,236,224,.38)", fontFamily:"'Noto Sans',sans-serif", padding:"2px 0" }}>{fb.text}</div>}
+              </div>
+            );
+          })}
+          <button onClick={() => setExamStep(2)} style={{ width:"100%", background:lv.color, color:"white", padding:"14px", borderRadius:9, border:"none", fontFamily:"'Bebas Neue',sans-serif", fontSize:19, letterSpacing:2, cursor:"pointer", marginTop:6 }}>
+            CONTINUAR → CULTURA
+          </button>
+        </div>
+      )}
+
+{/* CULTURA */}
+      {examStep===2 && (
+        <div style={{ animation:"fadeUp .4s ease" }}>
+          <div style={{ marginBottom:24 }}>
+            <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:20, color:"#f0ece0", letterSpacing:1 }}>🏛️ Cultura Rusa</div>
+            <div style={{ fontSize:12, color:"rgba(240,236,224,.42)", fontFamily:"'Noto Sans',sans-serif", marginTop:3 }}>Preguntas sobre geografía, historia y tradiciones de Rusia.</div>
+          </div>
+          {lv.examC.map((q, qi) => (
+            <div key={qi} style={{ background:"rgba(12,18,30,.95)", border:"1px solid rgba(255,255,255,.07)", borderRadius:12, padding:22, marginBottom:14 }}>
+              <div style={{ fontFamily:"'Crimson Pro',serif", fontSize:17, color:"#f0ece0", marginBottom:14 }}>
+                <span style={{ color:"#D4AF37", fontWeight:700, marginRight:6 }}>{qi+1}.</span>{q.q}
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {q.opts.map((opt, oi) => (
+                  <ExamOpt key={oi} selected={cultureAnswers[qi]===oi} onClick={() => setCultureAnswers(p => ({ ...p, [qi]:oi }))}>
+                    <span style={{ color:"#D4AF37", fontSize:11, marginRight:8, fontFamily:"'Noto Sans',sans-serif" }}>{String.fromCharCode(65+oi)}.</span>{opt}
+                  </ExamOpt>
+                ))}
+              </div>
+            </div>
+          ))}
+          <button onClick={() => { if (Object.keys(cultureAnswers).length < lv.examC.length) { alert("¡Respondé todas las preguntas!"); return; } setExamStep(3); }}
+            style={{ width:"100%", background:"#D4AF37", color:"#07090f", padding:"14px", borderRadius:9, border:"none", fontFamily:"'Bebas Neue',sans-serif", fontSize:19, letterSpacing:2, cursor:"pointer", marginTop:6, fontWeight:900 }}>
+            VER RESULTADOS 📊
+          </button>
+        </div>
+      )}
+{/* RESULTADOS */}
+      {examStep===3 && (() => {
+        const sc = calcScore();
+        const idx = LEVELS.findIndex(l => l.id === lv.id);
+        const hasNext = idx < LEVELS.length - 1;
+        return (
+          <div style={{ animation:"fadeUp .5s ease", textAlign:"center" }}>
+            <div style={{ fontSize:72, marginBottom:12 }}>{sc.pass?"🏆":"📚"}</div>
+            <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:60, color:sc.pass?"#2ecc71":"#E8192C", letterSpacing:3, lineHeight:1, marginBottom:6 }}>{sc.pct}%</div>
+            <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:28, color:"#f0ece0", letterSpacing:2, marginBottom:8 }}>{sc.pass?"¡APROBADO!":"NO APROBADO"}</div>
+            <div style={{ fontSize:14, color:"rgba(240,236,224,.5)", fontFamily:"'Noto Sans',sans-serif", marginBottom:28 }}>
+              {sc.correct} de {sc.total} correctas · {sc.pass ? (hasNext?`¡Desbloqueás el nivel ${LEVELS[idx+1].badge}!`:"¡Completaste todos los niveles! 🎉") : "Necesitás 70% para aprobar. ¡Repasá y volvé a intentarlo!"}
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:32 }}>
+              {[{label:"✍️ Escritura",count:sc.wC,total:lv.examW.length,color:lv.color},{label:"🎤 Pronunciación",count:sc.sC,total:lv.examS.length,color:"#D4AF37"},{label:"🏛️ Cultura",count:sc.cC,total:lv.examC.length,color:"#2ecc71"}].map((s, i) => (
+                <div key={i} style={{ background:"rgba(12,18,30,.95)", border:`1px solid ${s.color}30`, borderRadius:10, padding:16 }}>
+                  <div style={{ fontSize:11, color:"rgba(240,236,224,.38)", fontFamily:"'Noto Sans',sans-serif", marginBottom:6 }}>{s.label}</div>
+                  <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:32, color:s.color }}>{s.count}/{s.total}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
+              {!sc.pass && <button onClick={onBack} style={{ background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.14)", color:"#f0ece0", padding:"12px 20px", borderRadius:8, cursor:"pointer", fontFamily:"'Noto Sans',sans-serif", fontSize:14 }}>📖 Repasar</button>}
+              <button onClick={() =>
+onComplete(sc.pass)} style={{ background:sc.pass?"#2ecc71":lv.color, border:"none", color:"white", padding:"12px 28px", borderRadius:8, cursor:"pointer", fontFamily:"'Bebas Neue',sans-serif", fontSize:sc.pass?22:18, letterSpacing:2, boxShadow:sc.pass?"0 4px 24px rgba(46,204,113,.35)":"none" }}>
+                {sc.pass?(hasNext?`🚀 NIVEL ${LEVELS[idx+1].badge}`:"🎉 FINALIZAR"):"🔄 REINTENTAR"}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+function ChatPanel({ open, setOpen, messages, input, setInput, onSend, loading, endRef }) {
+  return (
+    <div style={{ position:"fixed", bottom:24, right:24, zIndex:200 }}>
+      {open && (
+        <div style={{ width:370, height:530, display:"flex", flexDirection:"column", background:"rgba(8,11,20,.97)", border:"1px solid rgba(232,25,44,.3)", borderRadius:16, boxShadow:"0 24px 80px rgba(0,0,0,.6)", backdropFilter:"blur(24px)", marginBottom:10, overflow:"hidden", animation:"slideRight .3s ease" }}>
+          <div style={{ padding:"14px 18px", borderBottom:"1px solid rgba(232,25,44,.15)", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ width:34, height:34, background:"#E8192C", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>🤖</div>
+              <div>
+                <div style={{ fontFamily:"'Noto Sans',sans-serif", fontWeight:700, fontSize:13, color:"#f0ece0" }}>Asistente de Ruso</div>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                  <div style={{ width:6, height:6, borderRadius:"50%", background:"#2ecc71" }} />
+                  <div style={{ fontSize:10, color:"#2ecc71", fontFamily:"'Noto Sans',sans-serif" }}>Local · Sin internet</div>
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setOpen(false)} style={{ background:"none", border:"none", color:"rgba(255,255,255,.4)", cursor:"pointer", fontSize:18, padding:4 }}>✕</button>
+          </div>
+          <div style={{ flex:1, overflowY:"auto", padding:"14px 16px", display:"flex", flexDirection:"column", gap:10 }}>
+            {messages.map((msg, i) => (
+              <div key={i} style={{ display:"flex", justifyContent:msg.role==="user"?"flex-end":"flex-start", animation:"fadeUp .3s ease" }}>
+                <div style={{ maxWidth:"86%", padding:"9px 13px", borderRadius:msg.role==="user"?"14px 14px 4px 14px":"14px 14px 14px 4px",
+background:msg.role==="user"?"#E8192C":"rgba(255,255,255,.07)", border:msg.role==="user"?"none":"1px solid rgba(255,255,255,.1)",
+                  fontSize:13, color:"#f0ece0", fontFamily:"'Noto Sans',sans-serif", lineHeight:1.55, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div style={{ display:"flex", justifyContent:"flex-start" }}>
+                <div style={{ padding:"10px 16px", background:"rgba(255,255,255,.07)", borderRadius:"14px 14px 14px 4px", border:"1px solid rgba(255,255,255,.1)" }}>
+                  <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                    {[0,1,2].map(d => <div key={d} style={{ width:7, height:7, borderRadius:"50%", background:"#E8192C", animation:`pulse 1s ${d*.2}s infinite` }} />)}
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={endRef} />
+          </div>
+          {messages.length <= 1 && (
+            <div style={{ padding:"6px 14px 8px", display:"flex", flexWrap:"wrap", gap:5, borderTop:"1px solid rgba(255,255,255,.05)", flexShrink:0 }}>
+              {["¿Cómo pronuncio la Ж?","¿Qué son los casos?","Cultura rusa 🏛️","Consejos para estudiar 📚","¿Qué es el Baikal?"].map(s => (
+                <button key={s} onClick={() => setInput(s)} style={{ background:"rgba(232,25,44,.1)", border:"1px solid rgba(232,25,44,.28)", color:"#E8192C", padding:"4px 9px", borderRadius:20, fontSize:10, cursor:"pointer", fontFamily:"'Noto Sans',sans-serif" }}>{s}</button>
+              ))}
+            </div>
+          )}
+          <div style={{ padding:"11px 13px", borderTop:"1px solid rgba(255,255,255,.07)", display:"flex", gap:8, flexShrink:0 }}>
+            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key==="Enter" && !e.shiftKey && onSend()}
+              placeholder="Preguntá sobre ruso o cultura…"
+              style={{ flex:1, background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.11)", borderRadius:8, padding:"9px 12px", color:"#f0ece0", fontSize:13, fontFamily:"'Noto Sans',sans-serif", outline:"none" }} />
+            <button onClick={onSend} disabled={loading || !input.trim()} style={{ background:"#E8192C", border:"none", color:"white", padding:"9px 14px", borderRadius:8, fontSize:17, cursor:loading||!input.trim()?"not-allowed":"pointer", opacity:loading||!input.trim()?0.5:1, transition:"opacity .2s" }}>➤</button>
+          </div>
+        </div>
+      )}
+      <button onClick={() => setOpen(o => !o)} style={{ width:56, height:56, borderRadius:"50%", background:"#E8192C", border:"none", color:"white", fontSize:22, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 4px 24px rgba(232,25,44,.5)", animation:"glow 2.5s ease-in-out infinite", transition:"transform .2s" }}
+        onMouseEnter={e => e.currentTarget.style.transform="scale(1.1)"}
+        onMouseLeave={e => e.currentTarget.style.transform=""}>
+        {open?"✕":"💬"}
+      </button>
+    </div>
+  );
+}
+
+//
+═══════════════════════════════════════════════════════
+//  APP
+// ═══════════════════════════════════════════════════════
+export default function App() {
+  const [view, setView]                         = useState("home");
+  const [selectedLevel, setSelectedLevel]       = useState(null);
+  const [lessonTab, setLessonTab]               = useState("vocab");
+  const [unlocked, setUnlocked]                 = useState(new Set(["A1.1"]));
+  const [completed, setCompleted]               = useState(new Set());
+  const [examStep, setExamStep]                 = useState(0);
+  const [writingAnswers, setWritingAnswers]      = useState({});
+  const [speakingResults, setSpeakingResults]   = useState([]);
+  const [cultureAnswers, setCultureAnswers]     = useState({});
+  const [speakingFeedback, setSpeakingFeedback] = useState({});
+  const [isRecording, setIsRecording]           = useState(false);
+  const [speakingLoading, setSpeakingLoading]   = useState(false);
+  const [chatOpen, setChatOpen]                 = useState(false);
+  const [chatMsgs, setChatMsgs]                 = useState([{
+    role:"assistant",
+    content:"¡Привет! 👋 Soy tu asistente de ruso.\n\nPodés preguntarme sobre:\n• Pronunciación de letras (Ж, Р, Ш, Ы...)\n• Gramática (casos, género, verbos...)\n• Cultura (Baikal, Gagarin, ballet, gastronomía...)\n• Consejos para aprender más rápido\n\n¿Qué te gustaría saber?"
+  }]);
+  const [chatInput, setChatInput]   = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef(null);
+useEffect(() => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Noto+Sans:wght@300;400;600;700&display=swap";
+    document.head.appendChild(link);
+    const style = document.createElement("style");
+    style.textContent = `
+      *{box-sizing:border-box;margin:0;padding:0}
+      html,body{background:#07090f;color:#f0ece0;overflow-x:hidden}
+      ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0f1520}::-webkit-scrollbar-thumb{background:#E8192C;border-radius:3px}
+      @keyframes floatLetter{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-24px) rotate(5deg)}}
+      @keyframes fadeUp{from{transform:translateY(22px);opacity:0}to{transform:translateY(0);opacity:1}}
+      @keyframes slideRight{from{transform:translateX(80px);opacity:0}to{transform:translateX(0);opacity:1}}
+      @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+      @keyframes glow{0%,100%{box-shadow:0 0 12px rgba(232,25,44,.35)}50%{box-shadow:0 0 32px rgba(232,25,44,.75)}}
+      @keyframes recordPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+      input:focus{outline:none}
+    `;
+    document.head.appendChild(style);
+    return () => { try { document.head.removeChild(link); document.head.removeChild(style); } catch(e) {} };
+  }, []);
+
+  // Persistencia con window.storage
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await window.storage.get("ru-progress");
+        if (s) { const {u,c} = JSON.parse(s.value); if(u?.length) setUnlocked(new Set(u)); if(c?.length) setCompleted(new Set(c)); }
+      } catch(e) {}
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => { try { await window.storage.set("ru-progress", JSON.stringify({u:[...unlocked],c:[...completed]})); } catch(e) {} })();
+  }, [unlocked, completed]);
+
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior:"smooth" }); }, [chatMsgs]);
+
+  const openLesson = (lv) => { if (!unlocked.has(lv.id)) return; setSelectedLevel(lv); setLessonTab("vocab"); setView("lesson"); };
+  const startExam = () => { setExamStep(0); setWritingAnswers({}); setSpeakingResults([]); setCultureAnswers({}); setSpeakingFeedback({}); setIsRecording(false); setSpeakingLoading(false); setView("exam"); };
+
+const handleExamComplete = (passed) => {
+    if (passed) {
+      const idx = LEVELS.findIndex(l => l.id === selectedLevel.id);
+      setCompleted(p => new Set([...p, selectedLevel.id]));
+      if (idx < LEVELS.length - 1) setUnlocked(p => new Set([...p, LEVELS[idx+1].id]));
+      setView("home");
+    } else { startExam(); }
+  };
+
+  const handleChatSend = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+    const msg = chatInput.trim();
+    setChatInput("");
+    setChatMsgs(p => [...p, { role:"user", content:msg }]);
+    setChatLoading(true);
+    const resp = await simulateAI(msg);  // ← IA local, sin API
+    setChatMsgs(p => [...p, { role:"assistant", content:resp }]);
+    setChatLoading(false);
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#07090f", color:"#f0ece0", fontFamily:"'Noto Sans',sans-serif" }}>
+      <BgDecor />
+      <TopNav levels={LEVELS} unlocked={unlocked} completed={completed} openLesson={openLesson} chatOpen={chatOpen} setChatOpen={setChatOpen} />
+      <main>
+        {view==="home"   && <HomeView levels={LEVELS} unlocked={unlocked} completed={completed} openLesson={openLesson} />}
+        {view==="lesson" && <LessonView level={selectedLevel} lessonTab={lessonTab} setLessonTab={setLessonTab} onBack={() => setView("home")} onStartExam={startExam} />}
+        {view==="exam"   && <ExamView level={selectedLevel} examStep={examStep} setExamStep={setExamStep} writingAnswers={writingAnswers} setWritingAnswers={setWritingAnswers} speakingResults={speakingResults} setSpeakingResults={setSpeakingResults} cultureAnswers={cultureAnswers} setCultureAnswers={setCultureAnswers} speakingFeedback={speakingFeedback} setSpeakingFeedback={setSpeakingFeedback} isRecording={isRecording} setIsRecording={setIsRecording} speakingLoading={speakingLoading} setSpeakingLoading={setSpeakingLoading} onBack={() => setView("lesson")} onComplete={handleExamComplete} />}
+      </main>
+      <ChatPanel open={chatOpen} setOpen={setChatOpen} messages={chatMsgs} input={chatInput} setInput={setChatInput} onSend={handleChatSend} loading={chatLoading} endRef={chatEndRef} />
+    </div>
+  );
+}
+
