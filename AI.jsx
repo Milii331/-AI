@@ -78,3 +78,57 @@ const AI_RESPONSES = {
   ],
   familia: [
     "El vocabulario de **familia** en ruso 👨‍👩‍👧‍👦\n\n• мама [máma] — mamá\n• папа [pápa] — papá\n• брат [brat] — hermano\n• сестра [sestrá] — hermana\n• сын [syn] — hijo\n• дочь [doch'] — hija\n• дедушка [dédushka] — abuelo\n• бабушка [bábushka] — abuela ⭐\n\nLa **бабушка** es figura central en la cultura rusa — símbolo de sabiduría, cocina y amor incondicional. Muchos niños rusos son criados por sus abuelas.",
+  ],
+  viaje: [
+    "Frases esenciales para **viajar a Rusia** ✈️\n\n• Где...? [Gde...?] — ¿Dónde está...?\n• Как доехать до...? [Kak doyékhat' do...?] — ¿Cómo llegar a...?\n• Сколько стоит? [Skólko stóit?] — ¿Cuánto cuesta?\n• Я не понимаю [Ya ne ponimáyu] — No entiendo\n• Говорите медленнее! [Govoríte médlenneye!] — ¡Hablen más despacio!\n• Помогите! [Pomogíte!] — ¡Ayúdenme!\n\nEl metro de Moscú es el más bello del mundo — las estaciones son museos subterráneos.",
+  ],
+  restaurante: [
+    "Sobrevivir en un **ресторан** ruso 🍽️\n\n• Столик на двоих, пожалуйста. — Mesa para dos, por favor.\n• Что вы рекомендуете? — ¿Qué recomienda?\n• Без мяса, пожалуйста. — Sin carne, por favor.\n• Очень вкусно! — ¡Está muy rico!\n• Счёт, пожалуйста! — ¡La cuenta!\n\nEstructura del menú ruso:\n• Первое — primer plato (siempre sopa 🥣)\n• Второе — plato principal\n• Десерт — postre",
+  ],
+  tips: [
+    "Mis mejores **consejos para aprender ruso** más rápido 📈\n\n1. **Alfabeto primero** — aprendé a leer antes que nada. Es más fácil de lo que parece.\n2. **Frecuencia > cantidad** — 15 min diarios > 2 horas los domingos.\n3. **Asociaciones visuales** — la Д parece una casa → Дом (casa).\n4. **Contenido auténtico** — películas, música, YouTube en ruso.\n5. **No tengás miedo de hablar** — los rusos aprecian muchísimo el intento.\n\nProverbio ruso: **Повторение — мать учения.** [Povtorénie — mat' uchéniya] — La repetición es la madre del aprendizaje.",
+    "El secreto de los políglotas para el ruso 🧠\n\n**Método 1000 palabras:**\nLas 1000 palabras más frecuentes cubren el 85% del lenguaje cotidiano. A 5 palabras por día = 200 días para entender casi todo.\n\n**Para la pronunciación:**\n• Escuchá ruso todos los días aunque no entiendas nada\n• Tu cerebro reconoce patrones inconscientemente\n• Después de 2-3 meses el idioma 'suena diferente'\n\n**Lo más importante:** ¡disfrutarlo! La curiosidad genuina es 10x más poderosa que la obligación.",
+  ],
+  animo: [
+    "¡No te desanimes! El ruso es uno de los idiomas más gratificantes 💪\n\nLo que SÍ es difícil: los casos, el aspecto verbal, algunos sonidos (Ж, Ы, Щ).\n\nLo que es MÁS FÁCIL que el español:\n• Pasado: solo 4 formas (vs. 6+)\n• No hay artículos (el/la/un/una — no existen en ruso)\n• Las palabras se leen exactamente como se escriben\n\nProverbio ruso: **Терпение и труд всё перетрут.**\n[Terpéniye i trud vsyo peretrút]\n— La paciencia y el trabajo todo lo vencen. 🌟",
+  ],
+  pronunciacion: [
+    "Los 5 **sonidos más difíciles** para hispanohablantes 🎤\n\n1. **Ы** — entre 'i' y 'u', lengua hacia atrás\n2. **Ж** — como 'll' argentina / 'j' en 'vision'\n3. **Р** — r vibrante múltiple, más que la española\n4. **Щ** — 'shch' comprimido y adelantado\n5. **Х** — 'j' española pero más suave\n\n✅ Ventaja: el ruso NO tiene tonos (como el chino) ni vocales nasales (como el francés).\n\n⚠️ Clave: la **reducción vocálica** — la О sin acento suena como 'A'. Хорошо [khoROsho] suena 'kharaSHO'.",
+  ],
+  saludo: [
+    "¡Привет! 😊 ¿En qué te puedo ayudar? Podés preguntarme sobre pronunciación de letras, gramática, cultura rusa, vocabulario o consejos para aprender.",
+    "¡Здравствуй! 👋 Estoy para ayudarte con el ruso. Podés preguntarme sobre letras difíciles, los casos, cultura, gastronomía, historia... ¡lo que quieras!",
+    "Привет-привет! 🌟 ¿Querés practicar pronunciación, aprender sobre la cultura rusa, o entender alguna parte de la gramática? Aquí estoy.",
+  ],
+  gracias: [
+    "¡Con gusto! 😊 Не за что! [Ne za shto!] — ¡De nada! (más informal que пожалуйста). Seguimos cuando quieras.",
+    "Пожалуйста! 🙂 Si surgió otra duda sobre ruso o cultura rusa, acá estoy.",
+    "¡De nada! En ruso tenés dos formas de decirlo:\n• Не за что! [Ne za shto] — informal\n• Пожалуйста! [Pozhaluysta] — formal\n¡Seguimos!",
+  ],
+  fallback: [
+    "¡Buena pregunta! 🤔 No tengo info específica sobre eso, pero puedo ayudarte con:\n\n• Pronunciación de letras rusas (Ж, Р, Ш, Ы...)\n• Gramática (casos, género, verbos de movimiento, pasado)\n• Cultura (historia, gastronomía, ballet, Baikal...)\n• Vocabulario por tema (comida, viajes, familia...)\n• Consejos para aprender más rápido\n\n¿Qué te interesa?",
+    "Mmm, ese tema puntual no lo tengo cargado 🤷 Pero probá preguntarme sobre letras difíciles de pronunciar, los casos rusos, cultura (Matrioshka, Gagarin, Borsch...) o tips de estudio. ¡Escribí tu duda!",
+    "No tengo esa info exacta, pero seguro puedo ayudarte con algo relacionado 💡 Contame más: ¿es sobre pronunciación, gramática o cultura rusa?",
+  ],
+};
+
+function getAIResponse(input) {
+  const q = input.toLowerCase();
+  const has = (...w) => w.some(x => q.includes(x));
+
+  if (has("hola","buenas","привет","здравс","hi ","¡hi")) return R(AI_RESPONSES.saludo);
+  if (has("gracia","спасиб","thanks","grazie")) return R(AI_RESPONSES.gracias);
+
+  if (has("ж","zh","zhe","жить","жара")) return R(AI_RESPONSES.letra_zh);
+  if (has(" р ","рр","vibrante") && has("pronunc","suena","cómo","como","letra")) return R(AI_RESPONSES.letra_r);
+  if (has("ш","щ","sh","shch","школа","борщ")) return R(AI_RESPONSES.letra_sh);
+  if (has(" ы","[ы]","letra ы","sonido ы")) return R(AI_RESPONSES.letra_y);
+  if (has(" х ","[х]","letra х","sonido х","jota suave")) return R(AI_RESPONSES.letra_h);
+
+  if (has("alfabet","abecedario","cirílico","cirilico","letras","alphabet")) return R(AI_RESPONSES.alfabeto);
+  if (has("pronuncia","pronunc","acento","sonido","suena","difícil de decir","hablar")) return R(AI_RESPONSES.pronunciacion);
+
+  if (has("caso","casos","nominativo","acusativo","dativo","genitivo","instrumental","prepositional")) return R(AI_RESPONSES.casos);
+  if (has("género","genero","masculino","femenino","neutro")) return R(AI_RESPONSES.genero);
+  if (has("pasado","pretérito","pasado ruso","tiempo verbal","ayer")) return R(AI_RESPONSES.pasado);
+  if (has("movimiento","идти","ехать","idti","yekhat","ir a pie","en vehículo")) return R(AI_RESPONSES.movimiento);
