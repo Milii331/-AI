@@ -491,3 +491,53 @@ const speakRu = (text) => { const u = new SpeechSynthesisUtterance(text); u.lang
 // ═══════════════════════════════════════════════════════
 //  COMPONENTES — nivel de módulo
 // ═══════════════════════════════════════════════════════
+function BgDecor() {
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:0, overflow:"hidden", pointerEvents:"none" }}>
+      <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse 60% 50% at 15% 15%, rgba(232,25,44,.12) 0%, transparent 100%), radial-gradient(ellipse 50% 60% at 85% 85%, rgba(26,58,138,.17) 0%, transparent 100%), #07090f" }} />
+      {"ДРЯСНА".split("").map((l, i) => (
+        <div key={i} style={{ position:"absolute", fontSize:`${155+i*32}px`, fontFamily:"'Bebas Neue',sans-serif", color:"#E8192C", opacity:.05,
+          top:`${[8,35,60,5,50,78][i]}%`, left:`${[5,70,20,85,45,60][i]}%`,
+          animation:`floatLetter ${7+i}s ease-in-out infinite`, animationDelay:`${i*.9}s`, userSelect:"none", lineHeight:1 }}>{l}</div>
+      ))}
+      <svg style={{ position:"absolute", top:0, right:0, width:"28%", height:"100%", opacity:.05 }} viewBox="0 0 200 800" preserveAspectRatio="none">
+        {[0,30,60,90,120].map(x => <line key={x} x1={x} y1="0" x2={x+80} y2="800" stroke="#E8192C" strokeWidth="1.5" />)}
+      </svg>
+    </div>
+  );
+}
+
+function TopNav({ levels, unlocked, completed, openLesson, chatOpen, setChatOpen }) {
+  return (
+    <header style={{ position:"relative", zIndex:20, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 28px", borderBottom:"1px solid rgba(232,25,44,.18)", background:"rgba(7,9,15,.88)", backdropFilter:"blur(16px)" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+        <div style={{ width:38, height:38, background:"#E8192C", display:"flex", alignItems:"center", justifyContent:"center", borderRadius:4, fontFamily:"'Bebas Neue',sans-serif", fontSize:22, color:"white" }}>Р</div>
+        <div>
+          <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:22, letterSpacing:3, color:"#f0ece0", lineHeight:1 }}>РУССКИЙ</div>
+          <div style={{ fontSize:9, color:"#D4AF37", letterSpacing:4, fontFamily:"'Noto Sans',sans-serif", textTransform:"uppercase" }}>aprende ruso</div>
+        </div>
+      </div>
+      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+        {levels.map((lv, i) => {
+          const done = completed.has(lv.id), open = unlocked.has(lv.id);
+          return (
+            <div key={lv.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
+              <div onClick={() => openLesson(lv)} title={lv.sub} style={{ width:30, height:30, borderRadius:"50%", cursor:open?"pointer":"default",
+                background:done?"#2ecc71":open?lv.color:"rgba(255,255,255,.08)",
+                border:`2px solid ${done?"#2ecc71":open?lv.color:"rgba(255,255,255,.15)"}`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:9, fontFamily:"'Noto Sans',sans-serif", fontWeight:700,
+                color:open||done?"white":"rgba(255,255,255,.25)" }}>
+                {done ? "✓" : lv.badge}
+              </div>
+              {i < levels.length-1 && <div style={{ width:13, height:1, background:done?"#2ecc71":"rgba(255,255,255,.12)" }} />}
+            </div>
+          );
+        })}
+      </div>
+      <button onClick={() => setChatOpen(o => !o)} style={{ background:chatOpen?"#E8192C":"rgba(232,25,44,.12)", border:"1px solid rgba(232,25,44,.45)", color:"#f0ece0", padding:"9px 18px", borderRadius:7, fontFamily:"'Noto Sans',sans-serif", fontSize:13, display:"flex", alignItems:"center", gap:7, cursor:"pointer", transition:"all .2s" }}>
+        <span style={{ fontSize:16 }}>💬</span> Asistente
+      </button>
+    </header>
+  );
+}
