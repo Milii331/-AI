@@ -463,3 +463,31 @@ const LEVELS = [
     ],
   },
 ];
+// ═══════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════
+function levenshtein(a, b) {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  let curr = new Array(b.length + 1);
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++)
+      curr[j] = a[i-1] === b[j-1] ? prev[j-1] : 1 + Math.min(prev[j], curr[j-1], prev[j-1]);
+    [prev, curr] = [curr, prev];
+  }
+  return prev[b.length];
+}
+
+function textSimilarity(a, b) {
+  const norm = s => s.toLowerCase().replace(/ё/g,"е").replace(/[.,!?;:«»""''—–-]/g,"").replace(/\s+/g," ").trim();
+  a = norm(a); b = norm(b);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  return Math.max(0, 1 - levenshtein(a, b) / Math.max(a.length, b.length));
+}
+
+const speakRu = (text) => { const u = new SpeechSynthesisUtterance(text); u.lang = "ru-RU"; speechSynthesis.speak(u); };
+
+// ═══════════════════════════════════════════════════════
+//  COMPONENTES — nivel de módulo
+// ═══════════════════════════════════════════════════════
