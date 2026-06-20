@@ -11,27 +11,7 @@ Hecho por **María de los Milagros Esther Calderón**
 - Frases de inspiración en ruso
 - Curiosidades culturales
 
-## Cómo correr localmente
 
-```bash
-npm install
-npm run dev
-```
-
-## Cómo subir a Vercel
-
-### Opción A — CLI (más rápido)
-```bash
-npm install -g vercel
-npm run build
-vercel
-```
-
-### Opción B — GitHub + Vercel web
-1. Subir esta carpeta a un repositorio de GitHub
-2. Ir a [vercel.com](https://vercel.com) → New Project
-3. Importar el repositorio
-4. Vercel detecta Vite automáticamente → Deploy ✓
 
 ## Tecnologías
 - React 18
